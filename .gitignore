@@ -44,6 +44,9 @@ data/*.db-wal
 *.tfstate.*
 *.tfplan
 
+# Peer reference workbooks (keep seed workbooks tracked, ignore large peer reference binaries)
+**/references/*.xls*
+
 # macOS metadata
 .DS_Store
 **/.DS_Store
