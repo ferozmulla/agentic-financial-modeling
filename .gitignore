@@ -44,8 +44,9 @@ data/*.db-wal
 *.tfstate.*
 *.tfplan
 
-# Peer reference workbooks (keep seed workbooks tracked, ignore large peer reference binaries)
+# Peer reference & un-migrated assessment workbooks (keep seed workbooks tracked, ignore large binaries)
 **/references/*.xls*
+other models/*.xls*
 
 # macOS metadata
 .DS_Store
