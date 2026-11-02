@@ -52,11 +52,16 @@ def execute_tornado_macro(
                 else None
             )
 
+            sheet_has_override = (
+                sheet_name in context.sheet_overrides
+                or any(s == sheet_name for (s, _) in context.general_param_ratios)
+            )
+
             # Convert thermal C16 baseline value back to B16 price space for Stage 1/2 lattice anchor
             anchor_b16: float | None = None
             if (
                 parity_mode == "strict_legacy_vba"
-                and not context.has_custom_overrides
+                and not sheet_has_override
                 and baseline_cell_val is not None
             ):
                 if is_thermal:

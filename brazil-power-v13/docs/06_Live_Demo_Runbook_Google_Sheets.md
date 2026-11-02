@@ -111,12 +111,13 @@ Because spreadsheet formulas cannot loop through hundreds of scenarios, overwrit
 
 ### Minute 3: Cloud-Accelerated Goal-Seek Solvers (What the 31 Buttons Do)
 * **Where to be:** On the **`General`** tab (`Rows 42–52`) of your copy.
-* **What to click & show:**
-  1. **Click `Tornado 5` (`G42` — Utility Solar) or `Tornado 1` (`C42` — Gas CCGT):**
+* **What to edit, click & show:**
+  0. **Adjust a Live Scenario Assumption First:** On **`General`**, change **`G11`** (Utility Solar Base Capex) from **`5000`** to **`4400`** (and/or **`C20`** Gas CCGT Fuel Cost from **`4.50`** to **`5.25`**, or edit a specific forecast year such as **`LT Capex!G16`** for 2026 Solar Capex). *(Note: leave `_05_CF!B18` untouched, as `B18` is the forward `=IRR(B63:AT63)` output formula while the solver always targets the `12.00%` hurdle IRR.)*
+  1. **Click `Tornado 5` (Utility Solar) or `Tornado 1` (Gas CCGT):**
      * Point to the bottom-right toast notification showing the 21 solves completing on Cloud Run.
-     * Click into **`_05_CF`** (or **`_01_CF`**) to show the 21 solved breakeven prices populated in **`E6:G12`**, and click **`Output_1`** to show the updated Tornado chart.
-  2. **Click `Forecast LCOE` (`B43` — Master Multi-Decade Forecast):**
-     * Click into **`Output_3`** (`B9:J31`) to show the 23-year (2018–2040) $\times$ 8-technology LCOE and Cost-Benefit Index (`ICB`) forecast table (184 solves in one click).
+     * Click into **`_05_CF`** (or **`_01_CF`**) to show the updated 21 solved breakeven prices in **`E6:G12`**, and click **`Output_1`** to show the updated Tornado chart.
+  2. **Click `Forecast LCOE` (Master Multi-Decade Forecast):**
+     * Click into **`Output_3`** (`B9:J31`) to show the updated 23-year (`2018–2040`) $\times$ 8-technology LCOE and Cost-Benefit Index (`ICB`) forecast table (for example, Utility Solar in **Column `G` (`G9:G31`)** dropping from `231.78` to `~203.97 R$/MWh` in `G9`, and Gas CCGT `ICB` in **Column `B` (`B9:B31`)** rising above `253.17 R$/MWh`).
 * **Talk Track:**
   > *"Here is why the 31 buttons exist: while spreadsheet formulas calculate IRR forward from a given price, energy economists need to solve the problem in reverse—finding the exact breakeven electricity price (`B16`) that yields a 12.00% target IRR across 854 different sensitivity scenarios. In legacy Excel, clicking these buttons ran desktop VBA `GoalSeek` loops cell-by-cell, locking up Excel. In Google Sheets, clicking a button sends the current sheet inputs to our vectorized Python solver on Cloud Run, which solves all 21 Tornado points or all 184 multi-decade forecast points in milliseconds with $\le 10^{-8}$ numerical parity to the original VBA, and writes the results back to the sheet."*
 

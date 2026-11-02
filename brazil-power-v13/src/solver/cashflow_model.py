@@ -82,19 +82,19 @@ class VectorizedCashFlowEngine:
         h7_ratio = max(curr_h7 / base_h7, 0.05) if abs(base_h7) > 1e-12 else 1.0
 
         cf = base_cf.copy()
-        # Ensure construction years are negative outflows scaled by capex_ratio
-        const_outflow = -np.abs(base_cf[:const_cols]) * capex_ratio
-        if np.sum(np.abs(const_outflow)) < 1.0:
-            const_outflow = np.full(const_cols, -1000.0 * capex_ratio, dtype=np.float64)
-        cf[:const_cols] = const_outflow
+        base_const_outflow = -np.abs(base_cf[:const_cols])
+        if np.sum(np.abs(base_const_outflow)) < 1.0:
+            base_const_outflow = np.full(const_cols, -1000.0, dtype=np.float64)
+        base_inv = float(np.sum(np.abs(base_const_outflow)))
 
-        total_inv = float(np.sum(np.abs(cf[:const_cols])))
+        # Scale construction outflows by capex_ratio while keeping operating revenue per R$/MWh calibrated to base_inv
+        cf[:const_cols] = base_const_outflow * capex_ratio
+
         n_op = max(cf.size - const_cols, 1)
-        # Calibrate operating cash flow so that at price_b16 == base_b16, IRR is ~12.0%
-        # Annuity factor for 12% over n_op years after construction lag
-        lag_factor = (1.12 ** (const_cols - 1))
+        # Calibrate operating cash flow so that at price_b16 == base_b16 and capex_ratio == 1, IRR is ~12.0%
+        lag_factor = 1.12 ** (const_cols - 1)
         annuity_12 = (1.0 - (1.12 ** (-n_op))) / 0.12
-        annual_op_at_base = (total_inv * lag_factor) / max(annuity_12, 1.0)
+        annual_op_at_base = (base_inv * lag_factor) / max(annuity_12, 1.0)
 
         price_ratio = max(price_b16, 0.001) / base_b16
         if sheet_name in WorkbookSolverContext.RENEWABLE_SHEETS or is_dg:

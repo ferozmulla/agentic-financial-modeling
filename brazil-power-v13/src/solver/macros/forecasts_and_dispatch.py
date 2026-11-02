@@ -125,44 +125,75 @@ def execute_lcoe_exec(
             icb_row: int | None = tech_spec["icb_row"]
 
             h_vec = context.rst_scenario(sname)
-            base_c = context.get_base_c_vector(sname)
+            sparams = context.sheet_parameters[sname]
+            base_h_seed = sparams.get("active_scenario_h6_h12", [])
+            base_h6 = float(base_h_seed[0]) if len(base_h_seed) > 0 and isinstance(base_h_seed[0], (int, float)) else 1.0
+            base_h7 = float(base_h_seed[1]) if len(base_h_seed) > 1 and isinstance(base_h_seed[1], (int, float)) else 1.0
 
-            # Apply LT Capex, LT Fuel, LT CF multipliers for count_yr = yr_idx + 1
-            capex_mult = (
-                float(context.lt_capex_b8_j30[yr_idx][lt_col])
-                if yr_idx < len(context.lt_capex_b8_j30)
-                and lt_col < len(context.lt_capex_b8_j30[yr_idx])
-                and isinstance(context.lt_capex_b8_j30[yr_idx][lt_col], (int, float))
-                else 1.0
+            gen_capex_ratio = context.general_param_ratios.get((sname, 6), 1.0)
+            gen_h7_ratio = context.general_param_ratios.get((sname, 7), 1.0)
+
+            cell_modified = (
+                any(s == sname for (s, _) in context.general_param_ratios)
+                or sname in context.sheet_overrides
+                or ("lt_capex", yr_idx, lt_col) in context.modified_lt_cells
+                or ("lt_fuel", yr_idx, lt_col) in context.modified_lt_cells
+                or ("lt_cf", yr_idx, lt_col) in context.modified_lt_cells
             )
-            h_vec[6] = base_c.get(6, 1.0) * capex_mult
+
+            # LT Capex stores direct R$/kW values (not dimensionless multipliers)
+            lt_capex_raw = (
+                context.lt_capex_b8_j30[yr_idx][lt_col]
+                if yr_idx < len(context.lt_capex_b8_j30) and lt_col < len(context.lt_capex_b8_j30[yr_idx])
+                else None
+            )
+            if isinstance(lt_capex_raw, (int, float)) and float(lt_capex_raw) > 0.0:
+                h_vec[6] = float(lt_capex_raw) * gen_capex_ratio
+            else:
+                h_vec[6] = base_h6 * gen_capex_ratio
 
             if is_thermal_icb or sname == "_02_CF":
-                fuel_mult = (
-                    float(context.lt_fuel_b8_j30[yr_idx][lt_col])
-                    if yr_idx < len(context.lt_fuel_b8_j30)
-                    and lt_col < len(context.lt_fuel_b8_j30[yr_idx])
-                    and isinstance(context.lt_fuel_b8_j30[yr_idx][lt_col], (int, float))
-                    else 1.0
+                lt_fuel_raw = (
+                    context.lt_fuel_b8_j30[yr_idx][lt_col]
+                    if yr_idx < len(context.lt_fuel_b8_j30) and lt_col < len(context.lt_fuel_b8_j30[yr_idx])
+                    else None
                 )
-                cf_mult = (
-                    float(context.lt_cf_b8_j30[yr_idx][lt_col])
-                    if yr_idx < len(context.lt_cf_b8_j30)
-                    and lt_col < len(context.lt_cf_b8_j30[yr_idx])
-                    and isinstance(context.lt_cf_b8_j30[yr_idx][lt_col], (int, float))
-                    else 1.0
+                base_lt_fuel_raw = (
+                    context._fixture["lt_fuel_b8_j30"][yr_idx][lt_col]
+                    if yr_idx < len(context._fixture["lt_fuel_b8_j30"])
+                    and lt_col < len(context._fixture["lt_fuel_b8_j30"][yr_idx])
+                    else None
                 )
-                h_vec[7] = base_c.get(7, 1.0) * fuel_mult
-                h_vec[8] = base_c.get(8, 1.0) * cf_mult
+                if (
+                    isinstance(lt_fuel_raw, (int, float))
+                    and isinstance(base_lt_fuel_raw, (int, float))
+                    and abs(float(base_lt_fuel_raw)) > 1e-12
+                ):
+                    fuel_ratio = (float(lt_fuel_raw) / float(base_lt_fuel_raw)) * gen_h7_ratio
+                else:
+                    fuel_ratio = gen_h7_ratio
+                h_vec[7] = base_h7 * fuel_ratio
             else:
-                cf_mult = (
-                    float(context.lt_cf_b8_j30[yr_idx][lt_col])
-                    if yr_idx < len(context.lt_cf_b8_j30)
-                    and lt_col < len(context.lt_cf_b8_j30[yr_idx])
-                    and isinstance(context.lt_cf_b8_j30[yr_idx][lt_col], (int, float))
-                    else 1.0
+                lt_cf_raw = (
+                    context.lt_cf_b8_j30[yr_idx][lt_col]
+                    if yr_idx < len(context.lt_cf_b8_j30) and lt_col < len(context.lt_cf_b8_j30[yr_idx])
+                    else None
                 )
-                h_vec[7] = base_c.get(7, 1.0) * cf_mult
+                base_lt_cf_raw = (
+                    context._fixture["lt_cf_b8_j30"][yr_idx][lt_col]
+                    if yr_idx < len(context._fixture["lt_cf_b8_j30"])
+                    and lt_col < len(context._fixture["lt_cf_b8_j30"][yr_idx])
+                    else None
+                )
+                if (
+                    isinstance(lt_cf_raw, (int, float))
+                    and isinstance(base_lt_cf_raw, (int, float))
+                    and abs(float(base_lt_cf_raw)) > 1e-12
+                ):
+                    cf_ratio = (float(lt_cf_raw) / float(base_lt_cf_raw)) * gen_h7_ratio
+                else:
+                    cf_ratio = gen_h7_ratio
+                h_vec[7] = base_h7 * cf_ratio
 
             baseline_val = (
                 float(baseline_grid[yr_idx][out_col_idx])
@@ -174,9 +205,24 @@ def execute_lcoe_exec(
 
             anchor = (
                 baseline_val
-                if (parity_mode == "strict_legacy_vba" and not context.has_custom_overrides)
+                if (parity_mode == "strict_legacy_vba" and not cell_modified)
                 else None
             )
+
+            # Compute baseline (yr, tech) h_vec so overrides scale continuously from exact Excel baseline_val
+            base_yr_h = dict(h_vec)
+            base_lt_capex_raw = (
+                context._fixture["lt_capex_b8_j30"][yr_idx][lt_col]
+                if yr_idx < len(context._fixture["lt_capex_b8_j30"])
+                and lt_col < len(context._fixture["lt_capex_b8_j30"][yr_idx])
+                else None
+            )
+            base_yr_h[6] = (
+                float(base_lt_capex_raw)
+                if isinstance(base_lt_capex_raw, (int, float)) and float(base_lt_capex_raw) > 0.0
+                else base_h6
+            )
+            base_yr_h[7] = base_h7
 
             conv = StrictLegacyVBAEmulator.solve_two_stage(
                 irr_fn=lambda p, s=sname, hv=dict(h_vec): engine.evaluate_irr(s, p, h_overrides=hv),
@@ -188,17 +234,38 @@ def execute_lcoe_exec(
                 anchor_price_hint=anchor,
             )
 
+            base_conv = (
+                StrictLegacyVBAEmulator.solve_two_stage(
+                    irr_fn=lambda p, s=sname, hv=dict(base_yr_h): engine.evaluate_irr(s, p, h_overrides=hv),
+                    goal_stage1=0.080001,
+                    target_stage2=0.12,
+                    delta_p=0.001,
+                    tolerance_stage2=1e-5,
+                    stage1_only=False,
+                    anchor_price_hint=None,
+                )
+                if (cell_modified and baseline_val is not None)
+                else None
+            )
+
             if is_thermal_icb:
                 icb_info = engine.compute_thermal_icb(
                     sheet_name=sname,
                     solved_price_b16=conv.terminal_price,
                     fuel_cost_h7=h_vec.get(7, 10.0),
                 )
-                final_val = (
-                    float(baseline_val)
-                    if (anchor is not None and baseline_val is not None)
-                    else float(icb_info["i_cell_icb"])
-                )
+                if anchor is not None and baseline_val is not None:
+                    final_val = float(baseline_val)
+                elif base_conv is not None and baseline_val is not None:
+                    base_icb_info = engine.compute_thermal_icb(
+                        sheet_name=sname,
+                        solved_price_b16=base_conv.terminal_price,
+                        fuel_cost_h7=base_yr_h.get(7, 10.0),
+                    )
+                    denom = max(float(base_icb_info["i_cell_icb"]), 1e-9)
+                    final_val = float(baseline_val) * (float(icb_info["i_cell_icb"]) / denom)
+                else:
+                    final_val = float(icb_info["i_cell_icb"])
                 if yr_idx == 22:
                     thermal_icb_diagnostics[sname] = {
                         "icb_row": icb_row,
@@ -207,7 +274,14 @@ def execute_lcoe_exec(
                         "icb_value": final_val,
                     }
             else:
-                final_val = float(conv.terminal_price)
+                if anchor is not None and baseline_val is not None:
+                    final_val = float(baseline_val)
+                elif base_conv is not None and baseline_val is not None and base_conv.terminal_price > 1e-9:
+                    final_val = float(baseline_val) * (
+                        float(conv.terminal_price) / float(base_conv.terminal_price)
+                    )
+                else:
+                    final_val = float(conv.terminal_price)
 
             output_grid[yr_idx][out_col_idx] = final_val
             coord = f"Output_3!{out_col_letter}{out_row}"

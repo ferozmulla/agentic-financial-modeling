@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import copy
+
 from fastapi.testclient import TestClient
 
 from src.bqml.remote_function_handler import handle_bqml_remote_calls
 from src.bqml.surrogate_trainer import BQMLConnectedSheetsEngine
 from src.schemas.solver import (
     BQMLRemoteFunctionRequest,
+    GeneralOverrides,
     SolveMacroRequest,
 )
 from src.solver.macros.registry import MacroExecutionRegistry
@@ -170,3 +173,60 @@ def test_a06_bqml_remote_function_surrogate_and_connected_sheets_forecasts(
     surrogate = bq_engine.predict_surrogate_lcoe("_05_CF", capex_multiplier=0.9, capacity_factor_multiplier=1.05)
     assert surrogate["model_id"] == "sheets-commodity-mod-bqml-surrogate"
     assert surrogate["predicted_lcoe"] > 0.0
+
+
+def test_a07_general_and_lt_overrides_update_tornado_and_output3(
+    solver_context: WorkbookSolverContext,
+) -> None:
+    """TEST-A07: Verify General!G11 / C20 and LT Capex!G16 edits proportionally update Tornado 5 and Output_3."""
+    base_tir5 = solver_context.macros["calcule_tir5"]["flat_outputs"]
+    base_lcoe = solver_context.macros["lcoe_exec"]["flat_outputs"]
+
+    # 1. Edit General!G11 (Solar Base Capex: 5000 -> 4400) and General!C20 (Gas Fuel: 4.50 -> 5.25)
+    mod_gen = copy.deepcopy(solver_context.general_c5_n40)
+    mod_gen[11 - 5][4] = 4400.0  # General!G11 (row 11, col G = idx 4)
+    mod_gen[20 - 5][0] = 5.25    # General!C20 (row 20, col C = idx 0)
+
+    gen_ov = GeneralOverrides(
+        general_c5_n40=mod_gen,
+        lt_capex_b8_j30=copy.deepcopy(solver_context.lt_capex_b8_j30),
+        lt_fuel_b8_j30=copy.deepcopy(solver_context.lt_fuel_b8_j30),
+        lt_cf_b8_j30=copy.deepcopy(solver_context.lt_cf_b8_j30),
+    )
+
+    tir5_res = MacroExecutionRegistry.execute(
+        SolveMacroRequest(macro_name="calcule_tir5", general_overrides=gen_ov),
+        base_context=solver_context,
+    )
+    # Solar Capex dropped 12% (5000 -> 4400), so Tornado 5 Capex row (E6:G6) must drop ~12%
+    assert float(tir5_res.flat_outputs["_05_CF!F6"]) < float(base_tir5["_05_CF!F6"]) * 0.93
+    assert float(tir5_res.flat_outputs["_05_CF!E6"]) < float(base_tir5["_05_CF!E6"]) * 0.93
+    assert float(tir5_res.flat_outputs["_05_CF!G6"]) < float(base_tir5["_05_CF!G6"]) * 0.93
+
+    lcoe_res = MacroExecutionRegistry.execute(
+        SolveMacroRequest(macro_name="lcoe_exec", general_overrides=gen_ov),
+        base_context=solver_context,
+    )
+    # Output_3 Solar column G drops proportionally (~12%), Gas CCGT ICB column B rises, Wind column F stays untouched
+    assert 190.0 <= float(lcoe_res.flat_outputs["Output_3!G9"]) <= 215.0
+    assert 135.0 <= float(lcoe_res.flat_outputs["Output_3!G17"]) <= 156.0
+    assert float(lcoe_res.flat_outputs["Output_3!B9"]) > float(base_lcoe["Output_3!B9"])
+    assert abs(float(lcoe_res.flat_outputs["Output_3!F9"]) - float(base_lcoe["Output_3!F9"])) <= 1e-6
+
+    # 2. Edit LT Capex!G16 (2026 Solar Capex: ~3608.55 -> 2800.0) directly
+    mod_lt_capex = copy.deepcopy(solver_context.lt_capex_b8_j30)
+    mod_lt_capex[16 - 8][5] = 2800.0  # LT Capex!G16 (row 16, col G = idx 5)
+    lt_ov = GeneralOverrides(
+        general_c5_n40=copy.deepcopy(solver_context.general_c5_n40),
+        lt_capex_b8_j30=mod_lt_capex,
+        lt_fuel_b8_j30=copy.deepcopy(solver_context.lt_fuel_b8_j30),
+        lt_cf_b8_j30=copy.deepcopy(solver_context.lt_cf_b8_j30),
+    )
+    lcoe_lt_res = MacroExecutionRegistry.execute(
+        SolveMacroRequest(macro_name="lcoe_exec", general_overrides=lt_ov),
+        base_context=solver_context,
+    )
+    # 2026 Solar (Output_3!G17) drops from 168.24 to ~125-140, while 2018 Solar (Output_3!G9) stays at 231.78
+    assert 120.0 <= float(lcoe_lt_res.flat_outputs["Output_3!G17"]) <= 145.0
+    assert abs(float(lcoe_lt_res.flat_outputs["Output_3!G9"]) - float(base_lcoe["Output_3!G9"])) <= 1e-6
+
