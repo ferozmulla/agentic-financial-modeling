@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+  alloydb-local:
+    image: postgres:15-alpine
+    container_name: sheets-commodity-mod-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_dev_only_override}
+      POSTGRES_DB: commodity_governance
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+
+  vertex-solver-local:
+    build:
+      context: .
+      dockerfile: Dockerfile.vertex_solver
+    container_name: sheets-commodity-mod-vertex-solver
+    environment:
+      ENV: local
+      AIP_HTTP_PORT: 8080
+      AIP_HEALTH_ROUTE: /health
+      AIP_PREDICT_ROUTE: /predict
+    ports:
+      - "127.0.0.1:8081:8080"
+
+  gateway-local:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    container_name: sheets-commodity-mod-gateway
+    environment:
+      ENV: local
+      GCP_PROJECT_ID: comm-model-mod
+      GCP_REGION: us-central1
+      GEMINI_LOCATION: us
+      DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-local_dev_only_override}@alloydb-local:5432/commodity_governance
+    ports:
+      - "127.0.0.1:8000:8080"
+    depends_on:
+      - alloydb-local
+      - vertex-solver-local

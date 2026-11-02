@@ -1,0 +1,49 @@
+# Virtual environments & Python build/cache artifacts
+.venv/
+**/.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+
+# Environment variables, credentials & keys (keep .env.example)
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+*credentials*.json
+*service-account*.json
+*service_account*.json
+*.pem
+*.key
+**/apps_script/.clasp.json
+
+# Local runtime state, SQLite parity DBs & local JSONL sinks
+data/snapshots/
+data/bigquery_sink/
+data/*.db
+data/*.db-journal
+data/*.db-wal
+**/data/snapshots/
+**/data/bigquery_sink/
+**/data/*.db
+**/data/*.db-journal
+**/data/*.db-wal
+
+# Terraform state & plans
+.terraform/
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+
+# macOS metadata
+.DS_Store
+**/.DS_Store

@@ -1,0 +1,6 @@
+project_id      = "comm-model-mod"
+region          = "us-central1"
+zone            = "us-central1-a"
+bq_location     = "us-central1"
+gemini_location = "us"
+environment     = "mvp"

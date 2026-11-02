@@ -1,0 +1,14 @@
+.venv
+.git
+.gitignore
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+.mypy_cache
+data/snapshots
+data/bigquery_sink
+data/*.db
+infra/
+docs/
+tests/
