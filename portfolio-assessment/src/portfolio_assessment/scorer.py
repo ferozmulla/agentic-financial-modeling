@@ -51,7 +51,7 @@ def discover_workbooks(
                     p.is_file()
                     and p.suffix.lower() in (".xlsx", ".xlsm")
                     and not p.name.startswith("~$")
-                    and ".venv" not in p.parts
+                    and not {".venv", "tests", "reports"}.intersection(p.parts)
                 ):
                     found[p.resolve()] = p
 

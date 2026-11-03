@@ -9,12 +9,27 @@ from pathlib import Path
 from portfolio_assessment.scorer import assess_portfolio
 
 
-def _default_workspace_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+def _package_project_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _default_scan_dirs() -> list[Path]:
+    pkg_root = _package_project_root()
+    platform_root = pkg_root.parent
+    monorepo_dirs = [
+        platform_root / "brazil-power-v13" / "seed",
+        platform_root / "Eulr",
+        platform_root / "other models",
+    ]
+    existing = [d for d in monorepo_dirs if d.exists()]
+    if existing:
+        return existing
+    workbooks_dir = pkg_root / "workbooks"
+    return [workbooks_dir] if workbooks_dir.exists() else [pkg_root]
 
 
 def build_parser() -> argparse.ArgumentParser:
-    root = _default_workspace_root()
+    pkg_root = _package_project_root()
     parser = argparse.ArgumentParser(
         prog="assess-portfolio",
         description=(
@@ -26,11 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--scan-dirs",
         nargs="+",
         type=Path,
-        default=[
-            root / "brazil-power-v13" / "seed",
-            root / "Eulr",
-            root / "other models",
-        ],
+        default=_default_scan_dirs(),
         help="Directories or .xlsx/.xlsm files to scan (read-only).",
     )
     parser.add_argument(
@@ -43,7 +54,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=root / "portfolio-assessment" / "reports",
+        default=pkg_root / "reports",
         help="Output directory for Markdown and CSV scorecards.",
     )
     parser.add_argument(

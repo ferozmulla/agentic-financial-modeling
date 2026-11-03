@@ -1,74 +1,68 @@
-# Workbook Modernization Portfolio Scoring (`LES`, `MHS`, `MRI`) Implementation Plan
+# Workbook Modernization Portfolio Scoring (`LES`, `MHS`, `MRI`) Implementation Plan (v1.1 — Dry-Run Calibrated)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a self-contained, read-only Python CLI and assessment package (`portfolio-assessment/`) that scans `.xlsx`/`.xlsm` commodity modeling workbooks and produces deterministic `0–100%` **Logic Extractability (`LES`)**, **Model Hygiene (`MHS` + `Defect Rate`)**, and **Modernization Readiness Index (`MRI`)** scorecards alongside cell-level defect and external-link verification logs.
+**Goal:** Build a self-contained, read-only Python CLI and assessment package (`portfolio_assessment`) that scans `.xlsx`/`.xlsm` commodity modeling workbooks and produces deterministic `0–100%` **Logic Extractability (`LES`)**, **Model Hygiene (`MHS` + `Defect Rate`)**, and **Modernization Readiness Index (`MRI`)** scorecards alongside cell-level defect and external-link verification logs.
 
-**Architecture:** A single-pass streaming OpenXML (`ElementTree.iterparse`) and pure-Python MS-OVBA binary inspector extracts formulas (expanded to row/column-relative `R1C1`), cached `<v>` values/errors, VBA procedural calls, and external links without mutating source files. Active-Surface Proportional Weight Re-Normalization scores only applicable capabilities per workbook archetype, optionally confirming live external workbook/sheet/cell targets via `--reference-roots` when run on an S&P corporate laptop.
+**Architecture:** A single-pass C-accelerated OpenXML (`ElementTree.iterparse`, guarded against `<!DOCTYPE`/`<!ENTITY` payloads with optional `defusedxml` header parsing) and pure-Python MS-OVBA binary inspector extracts formulas (expanded to row/column-relative `R1C1` with shared-master caching), cached `<v>` values/errors, VBA procedural calls, and external links without mutating source files. Active-Surface Proportional Weight Re-Normalization scores only applicable capabilities per workbook archetype, optionally confirming live external workbook/sheet/cell targets and stale-cache drift via `--reference-roots` (with portfolio-wide `PeerLookup` caching) when run on an S&P corporate laptop.
 
-**Tech Stack:** Python `>=3.11`, standard library (`zipfile`, `xml.etree.ElementTree`, `csv`, `dataclasses`, `argparse`, `math`, `re`), `defusedxml>=0.7.1` (optional safe XML wrapper, already in workspace `.venv`), `pytest>=8.0`, `ruff>=0.3`.
+**Tech Stack:** Python `>=3.11`, zero required third-party runtime dependencies (`zipfile`, `xml.etree.ElementTree`, `csv`, `dataclasses`, `argparse`, `math`, `re`), optional `defusedxml>=0.7.1`, dev/test tools `pytest>=8.0` and `ruff>=0.3`.
 
-## Global Constraints
+## Global Constraints & Dry-Run Calibrations
 
+- **Standalone or Monorepo Layout:** All paths below are shown relative to the package root (`.` if running in a standalone folder on an S&P laptop, or `portfolio-assessment/` if inside a monorepo).
 - **Strictly Read-Only File Access:** Every `.xlsx` / `.xlsm` open call MUST use `zipfile.ZipFile(path, mode="r")`. Never modify, touch, or re-save any workbook.
-- **Zero New Third-Party Dependencies:** Use only Python 3.11+ standard library modules (plus `pytest` and `ruff` already installed in the shared root `.venv` or a local `.venv`).
 - **Exact Headline Metric Names & Polarity:**
   - `LES` = `Logic Extractability Score` (`0.0–100.0`, higher = more extractable)
   - `MHS` = `Model Hygiene Score` (`0.0–100.0`, higher = cleaner) paired with `Defect Rate (%) = round(100.0 - MHS, 2)`
   - `MRI` = `Modernization Readiness Index` (`clamp(0.55 * LES + 0.45 * MHS - 0.15 * max(0.0, 60.0 - min(LES, MHS)), 0.0, 100.0)`)
-- **Active-Surface Weight Re-Normalization:** Sub-metrics whose applicability gate is `False` MUST be reported with `applicable=False, score=None, effective_weight=0.0` (`N/A`), redistributing their base weight proportionally across active sub-metrics (`w_eff = w_i / sum_active_w`).
-- **Intentional Chart `=NA()` Exclusion:** Cached `#N/A` cells whose formula explicitly calls `NA()` MUST NOT be penalized in `H1`.
-- **Workspace Isolation:** Do not modify any files inside `brazil-power-v13/` or `Eulr/`.
+- **Key Empirical Calibrations (Must Preserve):**
+  1. **Active-Surface Weight Re-Normalization:** Sub-metrics whose applicability gate is `False` report `applicable=False, score=None, effective_weight=0.0` (`N/A`), redistributing base weights proportionally (`round(eff_w, 8)`).
+  2. **Proprietary `_xll.*` Desktop C++ Add-In Calibration:** Non-error `_xll.*` cells receive `0.25` credit in `E1` (`0.0` if cached value is an error or missing) AND activate `E4` (`External Feed & Connection Decoupling`) with a connector replacement deduction.
+  3. **MS-OVBA Runtime Header Filtering:** Strip single-byte LZNT1 compression flag bytes to extract `Attribute VB_Name` modules, and match explicit Win32/OS calls (`Declare [PtrSafe] Function/Sub`, `Shell(`, `WScript.Shell`, `URLDownloadToFile`) rather than bare `.dll` (which falsely matches Excel's built-in `VBE7.DLL` stream header).
+  4. **Formula-Computed Period Headers & Vertical-Column Dominance:** `_is_period_header_row` detects both static and formula-computed (`=F5+1`, `='KeyInputs'!C5`) integer calendar years (`1970..2100`) and Excel serial dates (`25569..73050`) in rows `1..35`. Vertical-column `H2` island scans require column-majority `R1C1` dominance (`>= max(6, int(0.55 * len(ordered)))`) so financial-statement subtotals never misfire.
+  5. **Intentional `=NA()` Exclusion & Dormant `0`-Ref Link Stubs:** Cached `#N/A` cells whose `<f>` calls `NA()` are excluded from `H1`. Workbooks with declared `xl/externalLinks` but `0` active external formula references (`total_active_refs == 0`) score `H4` as dormant metadata stubs (`55–85%`), not `0.0%`.
 
 ---
 
-## File Structure
+## File Structure (Relative to Package Root)
 
-- `portfolio-assessment/pyproject.toml` — Package metadata, CLI script entry point (`assess-portfolio`), `pytest` (`pythonpath = ["src"]`), and `ruff` configuration.
-- `portfolio-assessment/Makefile` — Auto-detects local `.venv` or parent `../.venv` (`lint`, `test`, `run`).
-- `portfolio-assessment/src/portfolio_assessment/__init__.py` — Package version export.
-- `portfolio-assessment/src/portfolio_assessment/models.py` — Frozen/typed dataclasses for sub-metrics, pillar scores, cell defects, external link audits, and workbook scorecards.
-- `portfolio-assessment/src/portfolio_assessment/weights.py` — Active-Surface Proportional Weight Re-Normalization, Archetype Badge classifier, and `MRI` + Tier calculator.
-- `portfolio-assessment/src/portfolio_assessment/vba_inspector.py` — Pure-Python MS-OVBA binary container scanner (`xl/vbaProject.bin`) detecting executable VBA lines, lock state, and Win32/Shell/COM/ADO calls.
-- `portfolio-assessment/src/portfolio_assessment/xml_inspector.py` — Single-pass `iterparse` OpenXML scanner, shared-formula expander, `R1C1` normalizer, and time-axis detector.
-- `portfolio-assessment/src/portfolio_assessment/reference_resolver.py` — Syntactic SharePoint/vintage/ghost link classifier + optional `--reference-roots` live `.xlsx`/`.xlsm` target sheet/cell/drift verifier for S&P corporate laptops.
-- `portfolio-assessment/src/portfolio_assessment/extractability.py` — Pillar 1 (`E1`–`E5` + `LES`) calculator.
-- `portfolio-assessment/src/portfolio_assessment/hygiene.py` — Pillar 2 (`H1`–`H5` + `MHS` + cell-level drag/island/error defect detectors).
-- `portfolio-assessment/src/portfolio_assessment/scorer.py` — Directory discovery, vintage deduplication, and `assess_workbook` / `assess_portfolio` orchestrator.
-- `portfolio-assessment/src/portfolio_assessment/reporter.py` — Generates `portfolio_executive_scorecard.md`, `portfolio_scorecard.csv`, `portfolio_cell_defects.csv`, and `portfolio_external_links_audit.csv`.
-- `portfolio-assessment/src/portfolio_assessment/cli.py` — Command-line interface (`--scan-dirs`, `--reference-roots`, `--output-dir`, `--include-all-vintages`).
-- `portfolio-assessment/README.md` — Usage guide for both standalone and S&P corporate laptop execution.
-- `portfolio-assessment/tests/conftest.py` — Helper that builds minimal valid in-memory/temp `.xlsx`/`.xlsm` OpenXML archives for fast deterministic unit tests.
-- `portfolio-assessment/tests/test_archetype_weights.py` — Unit tests for Task 1.
-- `portfolio-assessment/tests/test_xml_and_vba_inspector.py` — Unit tests for Task 2.
-- `portfolio-assessment/tests/test_reference_resolver.py` — Unit tests for Task 3.
-- `portfolio-assessment/tests/test_scorers_and_hygiene_detectors.py` — Unit tests for Task 4.
-- `portfolio-assessment/tests/test_cli_and_portfolio_e2e.py` — End-to-end CLI & workspace integration tests for Task 5.
+- `pyproject.toml` — Package metadata, CLI script entry point (`assess-portfolio`), `pytest`, and `ruff` configuration.
+- `Makefile` — Auto-detects local `.venv`, parent `../.venv`, or system `python3` (`lint`, `test`, `run`).
+- `README.md` — Quickstart guide for standalone and S&P corporate laptop execution.
+- `src/portfolio_assessment/__init__.py` — Package version export.
+- `src/portfolio_assessment/models.py` — Frozen dataclasses for sub-metrics, pillar scores, cell defects, external link audits, and workbook scorecards.
+- `src/portfolio_assessment/weights.py` — Active-Surface Proportional Weight Re-Normalization, Archetype Badge classifier, and `MRI` + Tier calculator.
+- `src/portfolio_assessment/vba_inspector.py` — Pure-Python MS-OVBA binary container scanner (`xl/vbaProject.bin`).
+- `src/portfolio_assessment/xml_inspector.py` — Single-pass C-accelerated `iterparse` OpenXML scanner, shared-formula `R1C1` normalizer, and time-axis detector.
+- `src/portfolio_assessment/reference_resolver.py` — Syntactic SharePoint/vintage/ghost link classifier + `--reference-roots` live `.xlsx`/`.xlsm` cell-drift and `.xlsb`/`.xls` file-existence verifier with shared `PeerLookup` cache.
+- `src/portfolio_assessment/extractability.py` — Pillar 1 (`E1`–`E5` + `LES`) calculator with formula-template regex caching.
+- `src/portfolio_assessment/hygiene.py` — Pillar 2 (`H1`–`H5` + `MHS` + cell-level drag/island/error defect detectors).
+- `src/portfolio_assessment/scorer.py` — Directory discovery, vintage deduplication, and `assess_workbook` / `assess_portfolio` orchestrator.
+- `src/portfolio_assessment/reporter.py` — Generates `portfolio_executive_scorecard.md`, `portfolio_scorecard.csv`, `portfolio_cell_defects.csv`, and `portfolio_external_links_audit.csv`.
+- `src/portfolio_assessment/cli.py` — Command-line interface (`--scan-dirs`, `--reference-roots`, `--output-dir`, `--include-all-vintages`).
+- `tests/conftest.py` — Minimal valid OpenXML `.xlsx`/`.xlsm` fixture builder.
+- `tests/test_archetype_weights.py` — Unit tests for Task 1.
+- `tests/test_xml_and_vba_inspector.py` — Unit tests for Task 2.
+- `tests/test_reference_resolver.py` — Unit tests for Task 3.
+- `tests/test_scorers_and_hygiene_detectors.py` — Unit tests for Task 4.
+- `tests/test_cli_and_portfolio_e2e.py` — End-to-end CLI & deduplication tests for Task 5.
 
 ---
 
 ### Task 1: Package Scaffolding, Data Models & Dynamic Archetype Weight Engine
 
 **Files:**
-- Create: `portfolio-assessment/pyproject.toml`
-- Create: `portfolio-assessment/Makefile`
-- Create: `portfolio-assessment/src/portfolio_assessment/__init__.py`
-- Create: `portfolio-assessment/src/portfolio_assessment/models.py`
-- Create: `portfolio-assessment/src/portfolio_assessment/weights.py`
-- Test: `portfolio-assessment/tests/test_archetype_weights.py`
-
-**Interfaces:**
-- Consumes: Python standard library (`dataclasses`, `typing`).
-- Produces:
-  - `models.SubMetricScore`, `models.PillarScore`, `models.CellDefectRecord`, `models.ExternalLinkAuditRecord`, `models.WorkbookScorecard`
-  - `weights.clamp(val: float, lo: float = 0.0, hi: float = 100.0) -> float`
-  - `weights.renormalize_sub_metrics(specs: list[tuple[str, str, float, bool, float | None, str]]) -> tuple[float, list[SubMetricScore]]`
-  - `weights.classify_archetype(total_formula_cells: int, xll_udf_cells: int, has_vba: bool, is_iterative: bool, has_time_axis: bool) -> str`
-  - `weights.compute_mri_and_tier(les: float, mhs: float) -> tuple[float, str, str]`
+- Create: `pyproject.toml`
+- Create: `Makefile`
+- Create: `src/portfolio_assessment/__init__.py`
+- Create: `src/portfolio_assessment/models.py`
+- Create: `src/portfolio_assessment/weights.py`
+- Test: `tests/test_archetype_weights.py`
 
 - [ ] **Step 1: Create `pyproject.toml`, `Makefile`, `__init__.py`, and write the failing test**
 
-Create `portfolio-assessment/pyproject.toml`:
+Create `pyproject.toml`:
 ```toml
 [build-system]
 requires = ["setuptools>=68.0"]
@@ -87,20 +81,21 @@ assess-portfolio = "portfolio_assessment.cli:main"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.ruff]
 line-length = 108
 target-version = "py311"
 ```
 
-Create `portfolio-assessment/Makefile`:
+Create `Makefile`:
 ```makefile
 .PHONY: lint test run
 
-VENV_DIR := $(shell if [ -d .venv ]; then echo .venv; else echo ../.venv; fi)
-PYTHON := $(VENV_DIR)/bin/python
-PYTEST := $(VENV_DIR)/bin/pytest
-RUFF := $(VENV_DIR)/bin/ruff
+VENV_DIR := $(shell if [ -d .venv ]; then echo .venv; elif [ -d ../.venv ]; then echo ../.venv; else echo ""; fi)
+PYTHON := $(if $(VENV_DIR),$(VENV_DIR)/bin/python,python3)
+PYTEST := $(if $(VENV_DIR),$(VENV_DIR)/bin/pytest,python3 -m pytest)
+RUFF := $(if $(VENV_DIR),$(VENV_DIR)/bin/ruff,python3 -m ruff)
 
 lint:
 	$(RUFF) check src tests
@@ -112,14 +107,14 @@ run:
 	PYTHONPATH=src $(PYTHON) -m portfolio_assessment.cli
 ```
 
-Create `portfolio-assessment/src/portfolio_assessment/__init__.py`:
+Create `src/portfolio_assessment/__init__.py`:
 ```python
 """Workbook Modernization Portfolio Scoring Package (LES, MHS, MRI)."""
 
 __version__ = "1.0.0"
 ```
 
-Create `portfolio-assessment/tests/test_archetype_weights.py`:
+Create `tests/test_archetype_weights.py`:
 ```python
 from __future__ import annotations
 
@@ -163,7 +158,7 @@ def test_self_contained_vba_dcf_weights_sum_to_one() -> None:
     score, subs = renormalize_sub_metrics(specs)
     active_weight_sum = sum(s.effective_weight for s in subs if s.applicable)
     assert active_weight_sum == pytest.approx(1.0)
-    assert by_e4 := [s for s in subs if s.code == "E4"][0]
+    by_e4 = next(s for s in subs if s.code == "E4")
     assert by_e4.effective_weight == 0.0
     assert 96.0 <= score <= 97.0
 
@@ -189,12 +184,12 @@ def test_archetype_badge_classification() -> None:
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run (from `portfolio-assessment/`): `../.venv/bin/pytest tests/test_archetype_weights.py -v`
+Run: `pytest tests/test_archetype_weights.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'portfolio_assessment.weights'`
 
-- [ ] **Step 3: Write minimal implementation of `models.py` and `weights.py`**
+- [ ] **Step 3: Implement `models.py` and `weights.py`**
 
-Create `portfolio-assessment/src/portfolio_assessment/models.py`:
+Create `src/portfolio_assessment/models.py`:
 ```python
 """Typed data structures for LES, MHS, MRI scorecards and cell-level defects."""
 
@@ -269,7 +264,7 @@ class WorkbookScorecard:
     telemetry: dict[str, Any] = field(default_factory=dict)
 ```
 
-Create `portfolio-assessment/src/portfolio_assessment/weights.py`:
+Create `src/portfolio_assessment/weights.py`:
 ```python
 """Active-Surface Proportional Weight Re-Normalization, Archetypes, and MRI Composite."""
 
@@ -313,7 +308,7 @@ def renormalize_sub_metrics(
                     title=title,
                     base_weight=base_w,
                     applicable=True,
-                    effective_weight=round(eff_w, 6),
+                    effective_weight=round(eff_w, 8),
                     score=clamped_sc,
                     summary=summary,
                 )
@@ -374,37 +369,22 @@ def compute_mri_and_tier(les: float, mhs: float) -> tuple[float, str, str]:
 
 - [ ] **Step 4: Run tests & linter to verify PASS**
 
-Run (from `portfolio-assessment/`): `make lint && make test`
+Run: `ruff check src tests && pytest -v`
 Expected: `All checks passed!` and `4 passed`.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add portfolio-assessment/pyproject.toml portfolio-assessment/Makefile portfolio-assessment/src/portfolio_assessment/__init__.py portfolio-assessment/src/portfolio_assessment/models.py portfolio-assessment/src/portfolio_assessment/weights.py portfolio-assessment/tests/test_archetype_weights.py
-git commit -m "feat(portfolio-assessment): add core scorecard models and dynamic archetype weighting"
-```
 
 ---
 
 ### Task 2: Streaming OpenXML (`iterparse`), Shared-Formula R1C1 Normalizer & MS-OVBA Inspector
 
 **Files:**
-- Create: `portfolio-assessment/src/portfolio_assessment/vba_inspector.py`
-- Create: `portfolio-assessment/src/portfolio_assessment/xml_inspector.py`
-- Create: `portfolio-assessment/tests/conftest.py`
-- Test: `portfolio-assessment/tests/test_xml_and_vba_inspector.py`
-
-**Interfaces:**
-- Consumes: Standard library `zipfile`, `xml.etree.ElementTree`, `re`, `pathlib.Path`.
-- Produces:
-  - `vba_inspector.VBAInspectionSummary` & `vba_inspector.inspect_vba_project_bytes(data: bytes) -> VBAInspectionSummary`
-  - `xml_inspector.CellInfo`, `xml_inspector.ExternalLinkRef`, `xml_inspector.SheetScanSummary`, `xml_inspector.WorkbookScanResult`
-  - `xml_inspector.normalize_formula_to_r1c1(formula: str, base_row: int, base_col: int) -> str`
-  - `xml_inspector.scan_workbook_openxml(xlsx_path: Path) -> WorkbookScanResult`
+- Create: `src/portfolio_assessment/vba_inspector.py`
+- Create: `src/portfolio_assessment/xml_inspector.py`
+- Create: `tests/conftest.py`
+- Test: `tests/test_xml_and_vba_inspector.py`
 
 - [ ] **Step 1: Write synthetic OpenXML fixture builder in `conftest.py` and failing tests in `test_xml_and_vba_inspector.py`**
 
-Create `portfolio-assessment/tests/conftest.py`:
+Create `tests/conftest.py`:
 ```python
 from __future__ import annotations
 
@@ -518,7 +498,7 @@ def build_synthetic_xlsx(
             sheet_xml = (
                 '<?xml version="1.0" encoding="UTF-8"?>'
                 '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-                f"<sheetData><row r=\"1\">{''.join(c_tags)}</row></sheetData>"
+                f'<sheetData><row r="1">{"".join(c_tags)}</row></sheetData>'
                 "</worksheet>"
             )
             zf.writestr(f"xl/worksheets/sheet{idx}.xml", sheet_xml)
@@ -526,13 +506,14 @@ def build_synthetic_xlsx(
     return target_path
 ```
 
-Create `portfolio-assessment/tests/test_xml_and_vba_inspector.py`:
+Create `tests/test_xml_and_vba_inspector.py`:
 ```python
 from __future__ import annotations
 
 from pathlib import Path
 
 from conftest import build_synthetic_xlsx
+
 from portfolio_assessment.vba_inspector import inspect_vba_project_bytes
 from portfolio_assessment.xml_inspector import normalize_formula_to_r1c1, scan_workbook_openxml
 
@@ -577,13 +558,23 @@ def test_vba_inspector_detects_empty_vs_procedural_and_win32() -> None:
     empty_res = inspect_vba_project_bytes(b"")
     assert empty_res.has_executable_vba is False
 
-    clean_vba = b"Attribute VB_Name = \"Module1\"\r\nSub GoalSeekLoop()\r\nRange(\"B18\").GoalSeek Goal:=0.12, ChangingCell:=Range(\"B16\")\r\nEnd Sub\r\n"
+    clean_vba = (
+        b'Attribute VB_Name = "Module1"\r\n'
+        b"Sub GoalSeekLoop()\r\n"
+        b'Range("B18").GoalSeek Goal:=0.12, ChangingCell:=Range("B16")\r\n'
+        b"End Sub\r\n"
+    )
     res_clean = inspect_vba_project_bytes(clean_vba)
     assert res_clean.has_executable_vba is True
     assert res_clean.has_win32_or_shell is False
     assert res_clean.procedural_lines >= 3
 
-    win32_vba = b"Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\nSub RunIt()\r\nCall Shell(\"cmd.exe\")\r\nEnd Sub\r\n"
+    win32_vba = (
+        b'Declare PtrSafe Function GetTickCount Lib "kernel32" () As Long\r\n'
+        b"Sub RunIt()\r\n"
+        b'Call Shell("cmd.exe")\r\n'
+        b"End Sub\r\n"
+    )
     res_win32 = inspect_vba_project_bytes(win32_vba)
     assert res_win32.has_executable_vba is True
     assert res_win32.has_win32_or_shell is True
@@ -591,12 +582,12 @@ def test_vba_inspector_detects_empty_vs_procedural_and_win32() -> None:
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run (from `portfolio-assessment/`): `make test`
+Run: `pytest -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'portfolio_assessment.vba_inspector'`
 
 - [ ] **Step 3: Implement `vba_inspector.py` and `xml_inspector.py`**
 
-Create `portfolio-assessment/src/portfolio_assessment/vba_inspector.py`:
+Create `src/portfolio_assessment/vba_inspector.py`:
 ```python
 """Pure-Python MS-OVBA binary container inspector for xl/vbaProject.bin."""
 
@@ -617,39 +608,41 @@ class VBAInspectionSummary:
 
 
 _ASCII_RUN_RE = re.compile(rb"[\x09\x0a\x0d\x20-\x7e]{6,}")
-_MOD_NAME_RE = re.compile(r'Attribute\s+VB_Name\s*=\s*"([^"]+)"', re.IGNORECASE)
+_MOD_NAME_RE = re.compile(r'Attribute\s+VB_Name\s*=\s*"([A-Za-z0-9_]+)"', re.IGNORECASE)
 _PROC_TOKEN_RE = re.compile(r"\b(Sub|Function|Property\s+Get|Property\s+Let)\b", re.IGNORECASE)
-_WIN32_RE = re.compile(r"\b(Declare\s+(?:PtrSafe\s+)?(?:Function|Sub)|Shell\s*\(|\.dll\b)", re.IGNORECASE)
+_WIN32_RE = re.compile(
+    r"\b(Declare\s+(?:PtrSafe\s+)?(?:Function|Sub)|(?:Call\s+)?Shell\s*\(|WScript\.Shell|URLDownloadToFile)",
+    re.IGNORECASE,
+)
 _COM_DB_RE = re.compile(
-    r"(CreateObject\s*\(\s*\"(?:ADODB|DAO|Scripting\.FileSystemObject|Excel\.Application)|Workbooks\.Open)",
+    r'(CreateObject\s*\(\s*"(?:ADODB|DAO|Scripting\.FileSystemObject|Excel\.Application)|Workbooks\.Open)',
     re.IGNORECASE,
 )
 
 
 def inspect_vba_project_bytes(data: bytes) -> VBAInspectionSummary:
-    """Extract readable ASCII/UTF-16LE fragments & MS-OVBA tokens without executing code."""
+    """Extract readable ASCII/MS-OVBA fragments and procedural tokens without executing code."""
     if not data or len(data) < 16:
         return VBAInspectionSummary(False, False, 0, False, False, [])
 
-    # Combine raw ASCII runs and MS-OVBA compressed single-byte literal tokens (strips flag bytes)
-    chunks = [m.group(0).decode("latin-1", errors="ignore") for m in _ASCII_RUN_RE.finditer(data)]
-    # Also strip solitary MS-OVBA flag bytes (\x00) to catch split keywords like "Sub " / "Declare "
-    stripped = re.sub(rb"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\xff]+", b" ", data).decode(
+    # Strip MS-OVBA LZNT1 single-byte compression flag bytes between printable ASCII bytes
+    deflagged = re.sub(rb"(?<=[\x20-\x7e])[\x00-\x08\x0b\x0c\x0e-\x1f\x80-\xff](?=[\x20-\x7e])", b"", data)
+    chunks = [m.group(0).decode("latin-1", errors="ignore") for m in _ASCII_RUN_RE.finditer(deflagged)]
+    stripped = re.sub(rb"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\xff]+", b" ", deflagged).decode(
         "latin-1", errors="ignore"
     )
     combined_text = "\n".join(chunks)
 
-    module_names = sorted(set(_MOD_NAME_RE.findall(combined_text)))
+    module_names = sorted(set(_MOD_NAME_RE.findall(combined_text)) | set(_MOD_NAME_RE.findall(stripped)))
     lines = [
         ln.strip()
         for ln in combined_text.splitlines()
-        if ln.strip()
-        and not ln.strip().startswith(("Attribute VB_", "'"))
+        if ln.strip() and not ln.strip().startswith(("Attribute VB_", "'"))
     ]
     has_proc = bool(_PROC_TOKEN_RE.search(combined_text) or _PROC_TOKEN_RE.search(stripped))
     proc_lines = len(lines) if has_proc else 0
 
-    has_dpb_lock = b"DPB=\"" in data and not has_proc and len(data) > 4096
+    has_dpb_lock = b'DPB="' in data and not has_proc and len(data) > 4096
     has_win32 = bool(_WIN32_RE.search(combined_text) or _WIN32_RE.search(stripped))
     has_com = bool(_COM_DB_RE.search(combined_text) or _COM_DB_RE.search(stripped))
 
@@ -663,19 +656,25 @@ def inspect_vba_project_bytes(data: bytes) -> VBAInspectionSummary:
     )
 ```
 
-Create `portfolio-assessment/src/portfolio_assessment/xml_inspector.py`:
+Create `src/portfolio_assessment/xml_inspector.py`:
 ```python
 """Single-pass streaming OpenXML scanner with shared-formula expansion & R1C1 normalization."""
 
 from __future__ import annotations
 
+import io
 import re
 import urllib.parse
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as CElementTree
 import zipfile
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
+
+try:
+    import defusedxml.ElementTree as SafeET
+except ImportError:  # pragma: no cover
+    import xml.etree.ElementTree as SafeET
 
 from portfolio_assessment.vba_inspector import VBAInspectionSummary, inspect_vba_project_bytes
 
@@ -684,11 +683,13 @@ NS_REL_DOC = "http://schemas.openxmlformats.org/officeDocument/2006/relationship
 NS_REL_PKG = "http://schemas.openxmlformats.org/package/2006/relationships"
 
 _COORD_RE = re.compile(r"^([A-Z]+)(\d+)$")
-_A1_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9_])(\$?)([A-Z]{1,3})(\$?)(\d+)(?![A-Za-z0-9_(])")
+_A1_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9_])(\$?)([A-Z]{1,3})(\$?)(\d+)(?![A-Za-z0-9_(!])")
 _EXT_REF_RE = re.compile(
     r"(?:'\[(\d+)\]([^']+)'!|\[(\d+)\]([A-Za-z0-9_ -]+)!)\$?([A-Z]{1,3})\$?(\d+)"
 )
+_EXT_IDX_RE = re.compile(r"\[(\d+)\]")
 _VINTAGE_RE = re.compile(r"(20\d{4})")
+_MAX_XML_MEMBER_BYTES = 512 * 1024 * 1024  # 512 MB zip-bomb safety cap per member
 
 
 def col_to_idx(col_str: str) -> int:
@@ -720,8 +721,12 @@ def shift_formula_a1(formula: str, d_row: int, d_col: int) -> str:
 
     def _repl(m: re.Match[str]) -> str:
         c_lock, col_s, r_lock, row_s = m.groups()
-        new_col = col_s if c_lock else idx_to_col(col_to_idx(col_s) + d_col)
-        new_row = int(row_s) if r_lock else max(1, int(row_s) + d_row)
+        c_num = col_to_idx(col_s)
+        r_num = int(row_s)
+        if c_num > 16384 or r_num > 1048576:
+            return m.group(0)
+        new_col = col_s if c_lock else idx_to_col(max(1, c_num + d_col))
+        new_row = r_num if r_lock else max(1, r_num + d_row)
         return f"{c_lock}{new_col}{r_lock}{new_row}"
 
     return _A1_TOKEN_RE.sub(_repl, formula)
@@ -734,11 +739,29 @@ def normalize_formula_to_r1c1(formula: str, base_row: int, base_col: int) -> str
         c_lock, col_s, r_lock, row_s = m.groups()
         c_num = col_to_idx(col_s)
         r_num = int(row_s)
+        if c_num > 16384 or r_num > 1048576:
+            return m.group(0)
         r_part = f"R{r_num}" if r_lock else f"R[{r_num - base_row}]"
         c_part = f"C{c_num}" if c_lock else f"C[{c_num - base_col}]"
         return f"{r_part}{c_part}"
 
     return _A1_TOKEN_RE.sub(_repl, formula.strip().lstrip("="))
+
+
+def _resolve_xl_target(raw_target: str) -> str:
+    cleaned = raw_target.replace("\\", "/").lstrip("/")
+    if not cleaned or ".." in cleaned.split("/"):
+        return ""
+    return cleaned if cleaned.startswith("xl/") else f"xl/{cleaned}"
+
+
+def _safe_xml_stream(zf: zipfile.ZipFile, member: str) -> io.BytesIO:
+    """Read XML member into memory after rejecting DTD/ENTITY declarations for fast C iterparse."""
+    raw = zf.read(member)
+    head = raw[:8192].upper()
+    if b"<!DOCTYPE" in head or b"<!ENTITY" in head:
+        raise ValueError(f"Disallowed XML DTD/ENTITY declaration in {member}")
+    return io.BytesIO(raw)
 
 
 @dataclass(frozen=True)
@@ -805,51 +828,67 @@ class WorkbookScanResult:
     has_time_axis: bool
 
 
-def _is_period_header_row(row_cells: list[CellInfo]) -> bool:
-    nums: list[float] = []
+def _is_period_header_row(row_idx: int, row_cells: list[CellInfo]) -> bool:
+    """Detect >=6-period calendar year or Excel serial date headers (static or formula-computed)."""
+    if row_idx > 35:
+        return False
+    years: list[float] = []
+    serials: list[float] = []
     for c in row_cells:
-        if c.formula is None and c.value is not None and c.ctype != "e":
+        if c.value is not None and c.ctype not in ("e", "s", "b"):
             try:
                 v = float(c.value)
-                # Calendar years 1970..2100 or Excel serial dates 25569..73050 (1970..2100)
-                if 1970 <= v <= 2100 or 25569 <= v <= 73050:
-                    nums.append(v)
+                if 1970 <= v <= 2100 and abs(v - round(v)) < 1e-6:
+                    years.append(v)
+                elif 25569 <= v <= 73050:
+                    serials.append(v)
             except ValueError:
                 continue
-    if len(nums) < 6:
-        return False
-    monotonic_steps = sum(1 for i in range(len(nums) - 1) if nums[i + 1] >= nums[i])
-    return monotonic_steps >= int(0.85 * (len(nums) - 1)) and nums[-1] > nums[0]
+
+    for seq, max_step in ((years, 10.0), (serials, 400.0)):
+        if len(seq) >= 6:
+            valid_steps = sum(
+                1 for i in range(len(seq) - 1) if 0.0 <= (seq[i + 1] - seq[i]) <= max_step
+            )
+            if valid_steps >= int(0.85 * (len(seq) - 1)) and seq[-1] > seq[0]:
+                return True
+    return False
 
 
-def scan_workbook_openxml(xlsx_path: Path) -> WorkbookScanResult:
+def scan_workbook_openxml(xlsx_path: Path, values_only: bool = False) -> WorkbookScanResult:
     """Stream-scan an OpenXML .xlsx/.xlsm file strictly read-only."""
     file_size_mb = round(xlsx_path.stat().st_size / (1024 * 1024), 2)
     vm = _VINTAGE_RE.search(xlsx_path.stem)
     vintage_tag = vm.group(1) if vm else ""
 
     with zipfile.ZipFile(xlsx_path, mode="r") as zf:
+        for zinfo in zf.infolist():
+            if ".." in zinfo.filename.replace("\\", "/").split("/"):
+                raise ValueError(f"Unsafe zip member path in {xlsx_path.name}: {zinfo.filename}")
+            if zinfo.file_size > _MAX_XML_MEMBER_BYTES:
+                raise ValueError(f"Zip member exceeds size cap in {xlsx_path.name}: {zinfo.filename}")
+
         namelist = set(zf.namelist())
-        wb_root = ET.fromstring(zf.read("xl/workbook.xml"))
-        rels_root = ET.fromstring(zf.read("xl/_rels/workbook.xml.rels"))
+        wb_root = SafeET.fromstring(zf.read("xl/workbook.xml"))
+        rels_root = SafeET.fromstring(zf.read("xl/_rels/workbook.xml.rels"))
         rid_map = {
             r.attrib["Id"]: r.attrib["Target"]
             for r in rels_root.findall(f"{{{NS_REL_PKG}}}Relationship")
         }
 
-        # Shared strings
         sst: list[str] = []
         if "xl/sharedStrings.xml" in namelist:
-            with zf.open("xl/sharedStrings.xml") as sfp:
-                for _, elem in ET.iterparse(sfp, events=("end",)):
-                    if elem.tag == f"{{{NS_MAIN}}}si":
-                        sst.append("".join(t.text or "" for t in elem.iter(f"{{{NS_MAIN}}}t")))
+            with _safe_xml_stream(zf, "xl/sharedStrings.xml") as sfp:
+                si_tag = f"{{{NS_MAIN}}}si"
+                t_tag = f"{{{NS_MAIN}}}t"
+                for _, elem in CElementTree.iterparse(sfp, events=("end",)):
+                    if elem.tag == si_tag:
+                        sst.append("".join(t.text or "" for t in elem.iter(t_tag)))
                         elem.clear()
 
         calc_el = wb_root.find(f"{{{NS_MAIN}}}calcPr")
         calc_pr = dict(calc_el.attrib) if calc_el is not None else {}
 
-        # Defined names
         defined_names: list[tuple[str, str]] = []
         broken_dnames = 0
         for dn in wb_root.findall(f".//{{{NS_MAIN}}}definedNames/{{{NS_MAIN}}}definedName"):
@@ -861,18 +900,17 @@ def scan_workbook_openxml(xlsx_path: Path) -> WorkbookScanResult:
             if "#REF!" in dbody:
                 broken_dnames += 1
 
-        # External links
         declared_ext: dict[str, str] = {}
         for idx_i, ext_el in enumerate(
             wb_root.findall(f".//{{{NS_MAIN}}}externalReferences/{{{NS_MAIN}}}externalReference"),
             start=1,
         ):
             rid = ext_el.attrib.get(f"{{{NS_REL_DOC}}}id", "")
-            tfile = rid_map.get(rid, "").split("/")[-1]
+            tfile = rid_map.get(rid, "").replace("\\", "/").split("/")[-1]
             rel_file = f"xl/externalLinks/_rels/{tfile}.rels"
             target_url = ""
-            if rel_file in namelist:
-                rxml = ET.fromstring(zf.read(rel_file))
+            if rel_file in namelist and ".." not in tfile:
+                rxml = SafeET.fromstring(zf.read(rel_file))
                 urls = [
                     urllib.parse.unquote(x.attrib.get("Target", ""))
                     for x in rxml.findall(f"{{{NS_REL_PKG}}}Relationship")
@@ -882,11 +920,13 @@ def scan_workbook_openxml(xlsx_path: Path) -> WorkbookScanResult:
 
         has_connections = "xl/connections.xml" in namelist
         ext_pivots = sum(
-            1 for n in namelist if n.startswith("xl/pivotCache/pivotCacheDefinition") and n.endswith(".xml")
+            1
+            for n in namelist
+            if n.startswith("xl/pivotCache/pivotCacheDefinition") and n.endswith(".xml")
         )
         vba = (
             inspect_vba_project_bytes(zf.read("xl/vbaProject.bin"))
-            if "xl/vbaProject.bin" in namelist
+            if (not values_only and "xl/vbaProject.bin" in namelist)
             else inspect_vba_project_bytes(b"")
         )
 
@@ -909,20 +949,21 @@ def scan_workbook_openxml(xlsx_path: Path) -> WorkbookScanResult:
         for sh_el in wb_root.findall(f".//{{{NS_MAIN}}}sheets/{{{NS_MAIN}}}sheet"):
             sname = sh_el.attrib["name"]
             sstate = sh_el.attrib.get("state", "visible")
-            rid = sh_el.attrib[f"{{{NS_REL_DOC}}}id"]
-            s_target = "xl/" + rid_map[rid].lstrip("/")
+            rid = sh_el.attrib.get(f"{{{NS_REL_DOC}}}id", "")
+            s_target = _resolve_xl_target(rid_map.get(rid, ""))
             sheet_names.append(sname)
             sheet_states[sname] = sstate
-            if s_target not in namelist:
+            if not s_target or s_target not in namelist:
                 continue
 
             sh_c_tags = sh_empty_styled = sh_pop = sh_f = 0
             shared_masters: dict[str, tuple[int, int, str]] = {}
+            shared_r1c1: dict[str, str] = {}
             by_row: dict[int, list[CellInfo]] = defaultdict(list)
             by_col: dict[int, list[CellInfo]] = defaultdict(list)
 
-            with zf.open(s_target) as wfp:
-                for _, elem in ET.iterparse(wfp, events=("end",)):
+            with _safe_xml_stream(zf, s_target) as wfp:
+                for _, elem in CElementTree.iterparse(wfp, events=("end",)):
                     if elem.tag != c_tag:
                         continue
                     sh_c_tags += 1
@@ -951,7 +992,7 @@ def scan_workbook_openxml(xlsx_path: Path) -> WorkbookScanResult:
                     is_cse = False
                     ext_idxs: tuple[str, ...] = ()
 
-                    if f_el is not None:
+                    if f_el is not None and not values_only:
                         sh_f += 1
                         f_type = f_el.attrib.get("t", "")
                         is_cse = f_type == "array"
@@ -961,18 +1002,24 @@ def scan_workbook_openxml(xlsx_path: Path) -> WorkbookScanResult:
                             if raw_f:
                                 shared_masters[si] = (r_idx, c_idx, raw_f)
                                 formula_str = raw_f
+                                r1c1_sig = normalize_formula_to_r1c1(formula_str, r_idx, c_idx)
+                                shared_r1c1[si] = r1c1_sig
                             elif si in shared_masters:
                                 mr, mc, mf = shared_masters[si]
-                                formula_str = shift_formula_a1(mf, r_idx - mr, c_idx - mc)
+                                r1c1_sig = shared_r1c1[si]
+                                if "[" in mf or ctype == "e" or "#REF!" in mf:
+                                    formula_str = shift_formula_a1(mf, r_idx - mr, c_idx - mc)
+                                else:
+                                    formula_str = mf
                             else:
                                 formula_str = raw_f
+                                r1c1_sig = normalize_formula_to_r1c1(formula_str, r_idx, c_idx)
                         else:
                             formula_str = raw_f
-
-                        r1c1_sig = normalize_formula_to_r1c1(formula_str, r_idx, c_idx)
+                            r1c1_sig = normalize_formula_to_r1c1(formula_str, r_idx, c_idx)
 
                         if "[" in formula_str:
-                            found_idxs = tuple(sorted(set(re.findall(r"\[(\d+)\]", formula_str))))
+                            found_idxs = tuple(sorted(set(_EXT_IDX_RE.findall(formula_str))))
                             if found_idxs:
                                 ext_idxs = found_idxs
                                 ext_f_cells += 1
@@ -1006,10 +1053,15 @@ def scan_workbook_openxml(xlsx_path: Path) -> WorkbookScanResult:
                         ext_indices=ext_idxs,
                     )
                     by_row[r_idx].append(cinfo)
-                    by_col[c_idx].append(cinfo)
+                    if not values_only:
+                        by_col[c_idx].append(cinfo)
                     elem.clear()
 
-            sh_has_time = any(_is_period_header_row(rcells) for rcells in by_row.values()) and sh_f >= 6
+            sh_has_time = (
+                not values_only
+                and any(_is_period_header_row(r_i, rcells) for r_i, rcells in by_row.items())
+                and sh_f >= 6
+            )
             if sh_has_time:
                 any_time_axis = True
                 time_f_cells += sh_f
@@ -1067,39 +1119,27 @@ def scan_workbook_openxml(xlsx_path: Path) -> WorkbookScanResult:
 
 - [ ] **Step 4: Run tests & linter to verify PASS**
 
-Run (from `portfolio-assessment/`): `make lint && make test`
+Run: `ruff check src tests && pytest -v`
 Expected: `All checks passed!` and `7 passed`.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add portfolio-assessment/src/portfolio_assessment/vba_inspector.py portfolio-assessment/src/portfolio_assessment/xml_inspector.py portfolio-assessment/tests/conftest.py portfolio-assessment/tests/test_xml_and_vba_inspector.py
-git commit -m "feat(portfolio-assessment): add streaming OpenXML R1C1 scanner and MS-OVBA inspector"
-```
 
 ---
 
 ### Task 3: S&P Corporate External Reference Resolver (`reference_resolver.py`)
 
 **Files:**
-- Create: `portfolio-assessment/src/portfolio_assessment/reference_resolver.py`
-- Test: `portfolio-assessment/tests/test_reference_resolver.py`
-
-**Interfaces:**
-- Consumes: `models.ExternalLinkAuditRecord`, `xml_inspector.WorkbookScanResult`.
-- Produces:
-  - `reference_resolver.classify_link_target_syntactic(raw_target: str, host_vintage: str) -> tuple[str, float]`
-  - `reference_resolver.resolve_workbook_external_links(scan: WorkbookScanResult, reference_roots: Sequence[Path] = ()) -> list[ExternalLinkAuditRecord]`
+- Create: `src/portfolio_assessment/reference_resolver.py`
+- Test: `tests/test_reference_resolver.py`
 
 - [ ] **Step 1: Write the failing test in `tests/test_reference_resolver.py`**
 
-Create `portfolio-assessment/tests/test_reference_resolver.py`:
+Create `tests/test_reference_resolver.py`:
 ```python
 from __future__ import annotations
 
 from pathlib import Path
 
 from conftest import build_synthetic_xlsx
+
 from portfolio_assessment.reference_resolver import (
     classify_link_target_syntactic,
     resolve_workbook_external_links,
@@ -1161,12 +1201,12 @@ def test_live_reference_roots_confirms_exact_and_drifted_peer_cells(tmp_path: Pa
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run (from `portfolio-assessment/`): `make test`
+Run: `pytest -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'portfolio_assessment.reference_resolver'`
 
 - [ ] **Step 3: Implement `reference_resolver.py`**
 
-Create `portfolio-assessment/src/portfolio_assessment/reference_resolver.py`:
+Create `src/portfolio_assessment/reference_resolver.py`:
 ```python
 """Syntactic link classifier and optional S&P corporate --reference-roots live cell verifier."""
 
@@ -1187,6 +1227,8 @@ _GHOST_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+PeerLookup = tuple[set[str], dict[tuple[str, str], str | None]]
+
 
 def classify_link_target_syntactic(raw_target: str, host_vintage: str) -> tuple[str, float]:
     """Classify an external link path into CLEAN_CORPORATE_LINK (1.0), PRIOR_VINTAGE_DRIFT (0.5), or GHOST (0.0)."""
@@ -1203,7 +1245,6 @@ def classify_link_target_syntactic(raw_target: str, host_vintage: str) -> tuple[
     if "sharepoint.com/sites/" in target.lower() or target.startswith(("/sites/", "../")):
         return ("CLEAN_CORPORATE_LINK", 1.0)
 
-    # Bare filename in same working folder (e.g., Uslr202409.xlsx)
     if "/" not in target and "\\" not in target and target.lower().endswith((".xlsx", ".xlsm", ".xlsb")):
         return ("CLEAN_CORPORATE_LINK", 1.0)
 
@@ -1224,13 +1265,39 @@ def _index_reference_files(reference_roots: Sequence[Path]) -> dict[str, Path]:
     return by_name
 
 
+def _is_within_reference_roots(candidate: Path, reference_roots: Sequence[Path]) -> bool:
+    try:
+        resolved_cand = candidate.resolve()
+    except OSError:
+        return False
+    for root in reference_roots:
+        try:
+            resolved_root = root.resolve()
+            if resolved_cand == resolved_root or resolved_cand.is_relative_to(resolved_root):
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def _load_peer_lookup(path: Path) -> PeerLookup:
+    peer_scan = scan_workbook_openxml(path, values_only=True)
+    lookup: dict[tuple[str, str], str | None] = {}
+    for ps_name, ps_summary in peer_scan.sheets.items():
+        for row_cells in ps_summary.cells_by_row.values():
+            for c in row_cells:
+                lookup[(ps_name, c.coord)] = c.value
+    return (set(peer_scan.sheets.keys()), lookup)
+
+
 def resolve_workbook_external_links(
     scan: WorkbookScanResult,
     reference_roots: Sequence[Path] = (),
+    peer_cache: dict[Path, PeerLookup] | None = None,
 ) -> list[ExternalLinkAuditRecord]:
     """Audit all declared external links and optionally confirm target sheets/cells via reference_roots."""
     ref_index = _index_reference_files(reference_roots) if reference_roots else {}
-    peer_scan_cache: dict[Path, WorkbookScanResult] = {}
+    cache = peer_cache if peer_cache is not None else {}
 
     refs_by_idx = defaultdict(list)
     active_counts: Counter[str] = Counter()
@@ -1243,17 +1310,19 @@ def resolve_workbook_external_links(
 
     for link_idx, raw_target in sorted(scan.declared_external_links.items(), key=lambda x: int(x[0])):
         tier, syn_score = classify_link_target_syntactic(raw_target, scan.vintage_tag)
-        fname = raw_target.replace("\\", "/").split("/")[-1].split("?")[0]
+        fname = Path(raw_target.replace("\\", "/").split("?")[0]).name
         matched_path = ref_index.get(fname.lower())
 
-        # Also check if raw_target is a directly mounted UNC/local path on an S&P laptop
         if matched_path is None and reference_roots and raw_target and not raw_target.startswith("http"):
             candidate = Path(raw_target.replace("file:///", ""))
-            if candidate.exists() and candidate.suffix.lower() in (".xlsx", ".xlsm", ".xlsb", ".xls"):
+            if (
+                _is_within_reference_roots(candidate, reference_roots)
+                and candidate.is_file()
+                and candidate.suffix.lower() in (".xlsx", ".xlsm", ".xlsb", ".xls")
+            ):
                 matched_path = candidate
 
         if not reference_roots:
-            status = "NOT_PROBED_OFFLINE"
             audits.append(
                 ExternalLinkAuditRecord(
                     workbook_name=wb_name,
@@ -1262,7 +1331,7 @@ def resolve_workbook_external_links(
                     link_health_tier=tier,
                     syntactic_score=syn_score,
                     active_formula_refs=active_counts[link_idx],
-                    resolution_status=status,
+                    resolution_status="NOT_PROBED_OFFLINE",
                     resolved_local_path="",
                     missing_sheets_count=0,
                     exact_match_cells=0,
@@ -1310,15 +1379,10 @@ def resolve_workbook_external_links(
             )
             continue
 
-        if matched_path not in peer_scan_cache:
-            peer_scan_cache[matched_path] = scan_workbook_openxml(matched_path)
-        peer_scan = peer_scan_cache[matched_path]
-
-        peer_lookup: dict[tuple[str, str], str | None] = {}
-        for ps_name, ps_summary in peer_scan.sheets.items():
-            for row_cells in ps_summary.cells_by_row.values():
-                for c in row_cells:
-                    peer_lookup[(ps_name, c.coord)] = c.value
+        resolved_key = matched_path.resolve()
+        if resolved_key not in cache:
+            cache[resolved_key] = _load_peer_lookup(matched_path)
+        peer_sheets, peer_lookup = cache[resolved_key]
 
         missing_sheets: set[str] = set()
         exact_cnt = 0
@@ -1326,7 +1390,7 @@ def resolve_workbook_external_links(
         max_drift = 0.0
 
         for ref in refs_by_idx[link_idx]:
-            if ref.ext_sheet not in peer_scan.sheets:
+            if ref.ext_sheet not in peer_sheets:
                 missing_sheets.add(ref.ext_sheet)
                 continue
             if not _DIRECT_EXT_CELL_RE.match(ref.formula_text.strip()):
@@ -1378,40 +1442,28 @@ def resolve_workbook_external_links(
 
 - [ ] **Step 4: Run tests & linter to verify PASS**
 
-Run (from `portfolio-assessment/`): `make lint && make test`
+Run: `ruff check src tests && pytest -v`
 Expected: `All checks passed!` and `9 passed`.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add portfolio-assessment/src/portfolio_assessment/reference_resolver.py portfolio-assessment/tests/test_reference_resolver.py
-git commit -m "feat(portfolio-assessment): add external link classifier and live S&P reference resolver"
-```
 
 ---
 
 ### Task 4: Pillar 1 (`LES`) & Pillar 2 (`MHS` + Cell Defect Detectors) Scoring Engines
 
 **Files:**
-- Create: `portfolio-assessment/src/portfolio_assessment/extractability.py`
-- Create: `portfolio-assessment/src/portfolio_assessment/hygiene.py`
-- Test: `portfolio-assessment/tests/test_scorers_and_hygiene_detectors.py`
-
-**Interfaces:**
-- Consumes: `models.PillarScore`, `models.CellDefectRecord`, `models.ExternalLinkAuditRecord`, `weights.clamp`, `weights.renormalize_sub_metrics`, `xml_inspector.WorkbookScanResult`.
-- Produces:
-  - `extractability.compute_extractability_pillar(scan: WorkbookScanResult) -> tuple[PillarScore, dict[str, int]]`
-  - `hygiene.compute_hygiene_pillar(scan: WorkbookScanResult, link_audits: Sequence[ExternalLinkAuditRecord]) -> tuple[PillarScore, list[CellDefectRecord], dict[str, int]]`
+- Create: `src/portfolio_assessment/extractability.py`
+- Create: `src/portfolio_assessment/hygiene.py`
+- Test: `tests/test_scorers_and_hygiene_detectors.py`
 
 - [ ] **Step 1: Write the failing tests in `tests/test_scorers_and_hygiene_detectors.py`**
 
-Create `portfolio-assessment/tests/test_scorers_and_hygiene_detectors.py`:
+Create `tests/test_scorers_and_hygiene_detectors.py`:
 ```python
 from __future__ import annotations
 
 from pathlib import Path
 
 from conftest import build_synthetic_xlsx
+
 from portfolio_assessment.extractability import compute_extractability_pillar
 from portfolio_assessment.hygiene import compute_hygiene_pillar
 from portfolio_assessment.reference_resolver import resolve_workbook_external_links
@@ -1426,10 +1478,10 @@ def test_extractability_penalizes_xll_sjpoint_and_marks_absent_vba_na(tmp_path: 
         {"r": "F1", "v": "2023"},
         {"r": "G1", "v": "2024"},
         {"r": "H1", "v": "2025"},
-        {"r": "C2", "f": "_xll.sjpoint(\"SERIES_A\")", "v": "42.5"},
-        {"r": "D2", "f": "_xll.sjpoint(\"SERIES_A\")", "v": "43.1"},
+        {"r": "C2", "f": '_xll.sjpoint("SERIES_A")', "v": "42.5"},
+        {"r": "D2", "f": '_xll.sjpoint("SERIES_A")', "v": "43.1"},
         {"r": "E2", "f": "SUM(C2:D2)", "v": "85.6"},
-        {"r": "F2", "f": "INDIRECT(\"C2\")", "v": "42.5"},
+        {"r": "F2", "f": 'INDIRECT("C2")', "v": "42.5"},
         {"r": "G2", "f": "SUM(C2:E2)", "v": "128.1"},
         {"r": "H2", "f": "SUM(C2:F2)", "v": "170.6"},
     ]
@@ -1441,9 +1493,9 @@ def test_extractability_penalizes_xll_sjpoint_and_marks_absent_vba_na(tmp_path: 
     assert stats["xll_udf_cells"] == 2
     assert stats["opaque_cells"] == 1
     assert by_code["E2"].applicable is False  # No VBA -> N/A
-    assert by_code["E4"].applicable is False  # No ext links -> N/A
-    # E1 credits: 2*0.5 + 1*0.0 + 3*1.0 = 4.0 / 6 = 66.67%
-    assert 66.0 <= (by_code["E1"].score or 0.0) <= 67.0
+    assert by_code["E4"].applicable is True  # _xll.sjpoint is an external desktop connector!
+    # E1 credits: 2*0.25 + 1*0.0 + 3*1.0 = 3.5 / 6 = 58.33%
+    assert 58.0 <= (by_code["E1"].score or 0.0) <= 59.0
 
 
 def test_hygiene_excludes_intentional_na_and_detects_hardcoded_drag_islands_and_fill_glitch(
@@ -1471,7 +1523,7 @@ def test_hygiene_excludes_intentional_na_and_detects_hardcoded_drag_islands_and_
     # Row 4: Intentional chart NA() vs genuine #VALUE! error
     cells.append({"r": "C4", "t": "e", "f": "NA()", "v": "#N/A"})
     cells.append({"r": "D4", "t": "e", "f": "IF(D1>2030,NA(),D2)", "v": "#N/A"})
-    cells.append({"r": "E4", "t": "e", "f": "E2+\"bad_text\"", "v": "#VALUE!"})
+    cells.append({"r": "E4", "t": "e", "f": 'E2+"bad_text"', "v": "#VALUE!"})
 
     p = build_synthetic_xlsx(tmp_path / "DirtyHygiene.xlsx", sheets={"Model": cells})
     scan = scan_workbook_openxml(p)
@@ -1490,12 +1542,12 @@ def test_hygiene_excludes_intentional_na_and_detects_hardcoded_drag_islands_and_
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run (from `portfolio-assessment/`): `make test`
+Run: `pytest -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'portfolio_assessment.extractability'`
 
 - [ ] **Step 3: Implement `extractability.py` and `hygiene.py`**
 
-Create `portfolio-assessment/src/portfolio_assessment/extractability.py`:
+Create `src/portfolio_assessment/extractability.py`:
 ```python
 """Pillar 1: Logic Extractability Score (LES, 0-100%) with Active-Surface Re-Normalization."""
 
@@ -1514,6 +1566,18 @@ _ADV_RE = re.compile(r"(\bOFFSET\s*\(|_xlfn\.[a-z0-9_]+\s*\()", re.IGNORECASE)
 _VOLATILE_RE = re.compile(r"\b(NOW|TODAY|RAND|RANDBETWEEN|CELL)\s*\(", re.IGNORECASE)
 
 
+def _classify_formula_template(ft: str) -> tuple[bool, str]:
+    """Return (is_volatile, bucket) cached per unique formula string."""
+    is_vol = bool(_VOLATILE_RE.search(ft))
+    if _OPAQUE_RE.search(ft):
+        return (is_vol, "opaque")
+    if _XLL_RE.search(ft):
+        return (is_vol, "xll")
+    if _ADV_RE.search(ft):
+        return (is_vol, "adv")
+    return (is_vol, "std")
+
+
 def compute_extractability_pillar(scan: WorkbookScanResult) -> tuple[PillarScore, dict[str, int]]:
     """Compute LES (0-100%) and sub-metrics E1..E5 across active workbook surfaces."""
     n_f = scan.total_formula_cells
@@ -1522,6 +1586,7 @@ def compute_extractability_pillar(scan: WorkbookScanResult) -> tuple[PillarScore
     opaque_cells = 0
     cse_or_adv_cells = 0
     volatile_cells = 0
+    template_cache: dict[str, tuple[bool, str]] = {}
 
     for sh in scan.sheets.values():
         for row_cells in sh.cells_by_row.values():
@@ -1529,18 +1594,22 @@ def compute_extractability_pillar(scan: WorkbookScanResult) -> tuple[PillarScore
                 if c.formula is None:
                     continue
                 ft = c.formula
-                if _VOLATILE_RE.search(ft):
+                cached_cls = template_cache.get(ft)
+                if cached_cls is None:
+                    cached_cls = _classify_formula_template(ft)
+                    template_cache[ft] = cached_cls
+                is_vol, bucket = cached_cls
+                if is_vol:
                     volatile_cells += 1
-                if _OPAQUE_RE.search(ft):
+                if bucket == "opaque":
                     opaque_cells += 1
-                    credit_sum += 0.0
-                elif _XLL_RE.search(ft):
+                elif bucket == "xll":
                     xll_cells += 1
-                    if c.value is not None and c.value != "#NAME?":
-                        credit_sum += 0.50
+                    if c.value is not None and c.ctype != "e":
+                        credit_sum += 0.25
                     else:
                         opaque_cells += 1
-                elif c.is_array_cse or _ADV_RE.search(ft):
+                elif c.is_array_cse or bucket == "adv":
                     cse_or_adv_cells += 1
                     credit_sum += 0.85
                 else:
@@ -1550,7 +1619,8 @@ def compute_extractability_pillar(scan: WorkbookScanResult) -> tuple[PillarScore
     a_e1 = n_f >= 1
     e1_score = clamp(100.0 * (credit_sum / max(n_f, 1))) if a_e1 else None
     e1_summary = (
-        f"{n_f:,} formulas ({xll_cells:,} XLL UDF, {cse_or_adv_cells:,} CSE/OFFSET/_xlfn, {opaque_cells:,} opaque)"
+        f"{n_f:,} formulas ({xll_cells:,} XLL UDF, "
+        f"{cse_or_adv_cells:,} CSE/OFFSET/_xlfn, {opaque_cells:,} opaque/failed-XLL)"
         if a_e1
         else "N/A (0 formulas)"
     )
@@ -1593,17 +1663,16 @@ def compute_extractability_pillar(scan: WorkbookScanResult) -> tuple[PillarScore
         vol_rate = volatile_cells / max(n_f, 1)
         sc3 -= min(25.0, 250.0 * vol_rate)
         e3_score = clamp(sc3)
-        e3_summary = (
-            f"{'Iterative (iterateCount=' + str(iter_cnt) + ')' if is_iter else 'Acyclic DAG'}, "
-            f"{volatile_cells:,} volatile cells"
-        )
+        iter_desc = f"Iterative (iterateCount={iter_cnt})" if is_iter else "Acyclic DAG"
+        e3_summary = f"{iter_desc}, {volatile_cells:,} volatile cells"
 
-    # E4: External Feed & Connection Decoupling
+    # E4: External Feed & Connection Decoupling (includes proprietary _xll.* desktop feeds)
     active_ext_books = len({r.link_index for r in scan.active_ext_refs})
     a_e4 = (
         scan.ext_formula_cell_count > 0
         or scan.has_connections_xml
         or scan.external_pivot_caches > 0
+        or xll_cells > 0
     )
     if not a_e4:
         e4_score = None
@@ -1619,11 +1688,15 @@ def compute_extractability_pillar(scan: WorkbookScanResult) -> tuple[PillarScore
             sc4 -= 18.0
         if scan.external_pivot_caches > 0:
             sc4 -= 10.0
+        if xll_cells > 0:
+            xll_share = xll_cells / max(n_f, 1)
+            sc4 -= min(28.0, 8.0 + 40.0 * xll_share)
         sc4 -= min(10.0, 0.15 * active_ext_books)
         e4_score = clamp(sc4)
         e4_summary = (
             f"{scan.ext_formula_cell_count:,} ext-link cells ({cache_cov*100:.1f}% cached) "
-            f"across {active_ext_books} active books; connections.xml={scan.has_connections_xml}"
+            f"across {active_ext_books} books, {xll_cells:,} XLL feed cells; "
+            f"connections.xml={scan.has_connections_xml}"
         )
 
     # E5: Time-Series & R1C1 Structural Regularity
@@ -1656,7 +1729,7 @@ def compute_extractability_pillar(scan: WorkbookScanResult) -> tuple[PillarScore
     return PillarScore("Logic Extractability Score", "LES", les_total, subs), stats
 ```
 
-Create `portfolio-assessment/src/portfolio_assessment/hygiene.py`:
+Create `src/portfolio_assessment/hygiene.py`:
 ```python
 """Pillar 2: Model Hygiene Score (MHS, 0-100%) and deterministic cell-level defect detectors."""
 
@@ -1672,9 +1745,19 @@ from portfolio_assessment.weights import clamp, renormalize_sub_metrics
 from portfolio_assessment.xml_inspector import CellInfo, WorkbookScanResult
 
 _INTENTIONAL_NA_RE = re.compile(r"\bNA\s*\(\s*\)", re.IGNORECASE)
-_SHEET_REF_RE = re.compile(r"(?:'([^'\[\]]+)'|([A-Za-z0-9_]+))!")
-_DEAD_TAB_RE = re.compile(r"(shooju_addin|_old$|^old_|not_updated|archive|backup|temp)", re.IGNORECASE)
+_STR_LIT_RE = re.compile(r'"[^"]*"')
+_SHEET_REF_RE = re.compile(
+    r"(?:'((?:[^'\[\]]|'')+)'|(?<![A-Za-z0-9_.'\"\[])([A-Za-z0-9_.]+))!(?=\$?[A-Za-z0-9_])"
+)
+_DEAD_TAB_RE = re.compile(
+    r"(shooju_addin|_old$|^old_|not_updated|archive|backup|temp)",
+    re.IGNORECASE,
+)
 _REL_UNANCHORED_RE = re.compile(r"(?<![A-Za-z0-9_$])([A-Z]{1,3})(\d+)")
+
+
+def _axis_pos(cell: CellInfo, is_row: bool) -> int:
+    return cell.col if is_row else cell.row
 
 
 def _scan_line_for_islands_and_drift(
@@ -1687,7 +1770,7 @@ def _scan_line_for_islands_and_drift(
 ) -> tuple[int, int, int]:
     """Detect hardcoded islands inside R1C1 runs, unlocked drag drift, and +1.0 fill glitches."""
     ordered = sorted(cells, key=lambda x: x.col if is_row else x.row)
-    if len(ordered) < 6:
+    if len(ordered) < 4:
         return (0, 0, 0)
 
     structured_cnt = sum(1 for c in ordered if c.r1c1_sig is not None)
@@ -1695,28 +1778,32 @@ def _scan_line_for_islands_and_drift(
     fill_glitches = 0
 
     # 1. Hardcoded Value Islands inside dominant R1C1 runs (>= 6 matching formula cells)
+    min_run_cnt = 6 if is_row else max(6, int(0.55 * len(ordered)))
     sig_counts = Counter(c.r1c1_sig for c in ordered if c.r1c1_sig is not None)
     for sig, cnt in sig_counts.items():
-        if cnt < 6:
+        if cnt < min_run_cnt:
             continue
         positions = [i for i, c in enumerate(ordered) if c.r1c1_sig == sig]
         first_i, last_i = positions[0], positions[-1]
         idx_pos = first_i + 1
         while idx_pos < last_i:
             c = ordered[idx_pos]
-            if c.formula is None and c.value is not None and c.ctype != "e":
-                # Count contiguous literal island width
+            if c.formula is None and c.value is not None and c.ctype not in ("e", "s"):
                 end_pos = idx_pos
                 while (
                     end_pos < last_i
                     and ordered[end_pos].formula is None
                     and ordered[end_pos].value is not None
+                    and ordered[end_pos].ctype not in ("e", "s")
                 ):
                     end_pos += 1
                 island_len = end_pos - idx_pos
-                # Ensure matching R1C1 exists immediately before and after the 1..5 cell island
+                coord_span = _axis_pos(ordered[end_pos], is_row) - _axis_pos(
+                    ordered[idx_pos - 1], is_row
+                )
                 if (
                     1 <= island_len <= 5
+                    and coord_span == island_len + 1
                     and ordered[idx_pos - 1].r1c1_sig == sig
                     and ordered[end_pos].r1c1_sig == sig
                 ):
@@ -1731,10 +1818,13 @@ def _scan_line_for_islands_and_drift(
                                     sub_metric="H2",
                                     defect_type="HARDCODED_ISLAND_IN_FORMULA_RUN",
                                     severity="HIGH",
-                                    detail=f"Static value {ordered[k].value!r} interrupts R1C1 series ({cnt} cells)",
+                                    detail=(
+                                        f"Static value {ordered[k].value!r} interrupts "
+                                        f"R1C1 series ({cnt} cells)"
+                                    ),
                                 )
                             )
-                idx_pos = end_pos
+                idx_pos = max(end_pos, idx_pos + 1)
             else:
                 idx_pos += 1
 
@@ -1771,12 +1861,16 @@ def _scan_line_for_islands_and_drift(
             if c.formula is None and c.value is not None and c.ctype not in ("s", "e"):
                 try:
                     cand = float(c.value)
-                    # Must have a fractional decimal part (excludes integer years 2020, 2021 or 1, 2, 3)
                     if abs(cand - round(cand)) > 1e-4:
                         val_f = cand
                 except ValueError:
                     val_f = None
-            if val_f is not None and prev_val is not None and abs((val_f - prev_val) - 1.0) <= 1e-6:
+            if (
+                val_f is not None
+                and prev_val is not None
+                and c.col - ordered[idx_c - 1].col == 1
+                and abs((val_f - prev_val) - 1.0) <= 1e-6
+            ):
                 run_len += 1
                 if run_len == 4:
                     fill_glitches += 4
@@ -1789,7 +1883,10 @@ def _scan_line_for_islands_and_drift(
                                 sub_metric="H2",
                                 defect_type="AUTO_INCREMENT_FILL_GLITCH",
                                 severity="HIGH",
-                                detail=f"Decimal input stepped by +1.0 across >=4 cells starting at {val_f - 3.0:.4f}",
+                                detail=(
+                                    "Decimal input stepped by +1.0 across >=4 cells "
+                                    f"starting at {val_f - 3.0:.4f}"
+                                ),
                             )
                         )
                 elif run_len > 4:
@@ -1808,7 +1905,8 @@ def compute_hygiene_pillar(
     """Compute MHS (0-100%), emit cell-level defect evidence, and return defect telemetry."""
     wb_name = scan.path.name
     defects: list[CellDefectRecord] = []
-    valid_sheets = set(scan.sheet_names)
+    valid_sheets_lower = {s.lower() for s in scan.sheet_names}
+    dead_ref_cache: dict[str, bool] = {}
 
     err_counts: Counter[str] = Counter()
     intentional_na = 0
@@ -1828,6 +1926,11 @@ def compute_hygiene_pillar(
                     else:
                         err_counts[c.value] += 1
                         if len(defects) < 500:
+                            sev = (
+                                "HIGH"
+                                if c.value in ("#REF!", "#NAME?", "#VALUE!")
+                                else "MEDIUM"
+                            )
                             defects.append(
                                 CellDefectRecord(
                                     workbook_name=wb_name,
@@ -1835,20 +1938,27 @@ def compute_hygiene_pillar(
                                     cell_coord=c.coord,
                                     sub_metric="H1",
                                     defect_type="EVALUATED_CELL_ERROR",
-                                    severity="HIGH" if c.value in ("#REF!", "#NAME!", "#VALUE!") else "MEDIUM",
-                                    detail=f"Cell evaluated to {c.value} (formula={c.formula or 'literal'})",
+                                    severity=sev,
+                                    detail=(
+                                        f"Cell evaluated to {c.value} "
+                                        f"(formula={c.formula or 'literal'})"
+                                    ),
                                 )
                             )
 
-                # H3: In-formula literal #REF! or missing internal sheet
+                # H3: In-formula literal #REF! or missing internal sheet (cached per formula template)
                 if c.formula:
-                    has_dead = "#REF!" in c.formula
-                    if not has_dead and "[" not in c.formula:
-                        for sm in _SHEET_REF_RE.finditer(c.formula):
-                            ref_sh = sm.group(1) or sm.group(2)
-                            if ref_sh not in valid_sheets:
-                                has_dead = True
-                                break
+                    has_dead = dead_ref_cache.get(c.formula)
+                    if has_dead is None:
+                        unquoted_f = _STR_LIT_RE.sub('""', c.formula)
+                        has_dead = "#REF!" in unquoted_f
+                        if not has_dead and "[" not in unquoted_f and "!" in unquoted_f:
+                            for sm in _SHEET_REF_RE.finditer(unquoted_f):
+                                ref_sh = (sm.group(1) or sm.group(2)).replace("''", "'")
+                                if ref_sh.lower() not in valid_sheets_lower:
+                                    has_dead = True
+                                    break
+                        dead_ref_cache[c.formula] = has_dead
                     if has_dead:
                         dead_formula_refs += 1
                         if len(defects) < 500:
@@ -1871,7 +1981,7 @@ def compute_hygiene_pillar(
             drag_anomalies += anom_cnt
             fill_glitches += fg_cnt
 
-        # Also scan vertical table columns (>= 6 cells) when sheet lacks a horizontal time axis
+        # Scan vertical table columns (>= 6 cells) when sheet lacks a horizontal time axis
         if not sh.has_time_axis:
             for col_cells in sh.cells_by_col.values():
                 s_cnt, anom_cnt, _ = _scan_line_for_islands_and_drift(
@@ -1891,7 +2001,8 @@ def compute_hygiene_pillar(
     e_rate = weighted_err / max(scan.total_formula_cells, 1)
     h1_score = clamp(100.0 - 22.0 * math.log10(1.0 + 1000.0 * e_rate)) if a_h1 else None
     h1_summary = (
-        f"{unintentional_total:,} error cells ({dict(err_counts)}), {intentional_na:,} intentional NA() excluded"
+        f"{unintentional_total:,} error cells ({dict(err_counts)}), "
+        f"{intentional_na:,} intentional NA() excluded"
         if a_h1
         else "N/A"
     )
@@ -1902,7 +2013,8 @@ def compute_hygiene_pillar(
     d_rate = total_h2_defects / max(structured_cells, 6)
     h2_score = clamp(100.0 - 28.0 * math.log10(1.0 + 500.0 * d_rate)) if a_h2 else None
     h2_summary = (
-        f"{drag_anomalies:,} island/drift cells + {fill_glitches:,} fill glitches across {structured_cells:,} series cells"
+        f"{drag_anomalies:,} island/drift cells + {fill_glitches:,} fill glitches "
+        f"across {structured_cells:,} series cells"
         if a_h2
         else "N/A (No >=6-cell formula series)"
     )
@@ -1927,7 +2039,7 @@ def compute_hygiene_pillar(
             f"{scan.broken_defined_names}/{n_dnames} ({r_n*100:.1f}%) #REF! defined names"
         )
 
-    # H4 Score (Active ONLY when external links or connections exist)
+    # H4 Score (Active ONLY when external links exist)
     n_decl_ext = len(scan.declared_external_links)
     a_h4 = n_decl_ext >= 1 or scan.ext_formula_cell_count >= 1
     if not a_h4:
@@ -1935,24 +2047,32 @@ def compute_hygiene_pillar(
         h4_summary = "N/A (0 external links)"
     else:
         total_active_refs = sum(a.active_formula_refs for a in link_audits)
-        if total_active_refs > 0:
-            active_link_score = 100.0 * (
-                sum(a.syntactic_score * a.active_formula_refs for a in link_audits) / total_active_refs
-            )
-        else:
-            active_link_score = (
-                100.0 * (sum(a.syntactic_score for a in link_audits) / max(len(link_audits), 1))
-            )
         orphans = sum(1 for a in link_audits if a.active_formula_refs == 0)
-        orphan_ratio = orphans / max(len(link_audits), 1)
-        sc4 = 0.75 * active_link_score + 25.0 * (1.0 - orphan_ratio)
-        # Deduct if live S&P reference verification detected missing target sheets
-        missing_sheet_links = sum(1 for a in link_audits if a.resolution_status == "RESOLVED_SHEET_MISSING")
-        sc4 -= 10.0 * missing_sheet_links
-        h4_score = clamp(sc4)
         ghosts = sum(1 for a in link_audits if a.link_health_tier == "GHOST_OR_LOCAL_PATH")
         drifts = sum(1 for a in link_audits if a.link_health_tier == "PRIOR_VINTAGE_DRIFT")
-        h4_summary = f"{n_decl_ext} declared links ({orphans} unused, {drifts} vintage-drift, {ghosts} local/ghost)"
+        if total_active_refs == 0:
+            # Zero active formula references -> unpruned dormant link stubs only (not live broken feeds)
+            h4_score = clamp(85.0 - 1.5 * orphans - 0.5 * ghosts, 55.0, 85.0)
+            h4_summary = (
+                f"{n_decl_ext} dormant/unused link stubs (0 active formula refs; "
+                f"{ghosts} legacy local/ghost paths)"
+            )
+        else:
+            active_link_score = 100.0 * (
+                sum(a.syntactic_score * a.active_formula_refs for a in link_audits)
+                / total_active_refs
+            )
+            orphan_ratio = orphans / max(len(link_audits), 1)
+            sc4 = 0.75 * active_link_score + 25.0 * (1.0 - orphan_ratio)
+            missing_sheet_links = sum(
+                1 for a in link_audits if a.resolution_status == "RESOLVED_SHEET_MISSING"
+            )
+            sc4 -= 10.0 * missing_sheet_links
+            h4_score = clamp(sc4)
+            h4_summary = (
+                f"{n_decl_ext} declared links "
+                f"({orphans} unused, {drifts} vintage-drift, {ghosts} local/ghost)"
+            )
 
     # H5 Score (Always active)
     sc5 = 100.0
@@ -1992,46 +2112,30 @@ def compute_hygiene_pillar(
 
 - [ ] **Step 4: Run tests & linter to verify PASS**
 
-Run (from `portfolio-assessment/`): `make lint && make test`
+Run: `ruff check src tests && pytest -v`
 Expected: `All checks passed!` and `11 passed`.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add portfolio-assessment/src/portfolio_assessment/extractability.py portfolio-assessment/src/portfolio_assessment/hygiene.py portfolio-assessment/tests/test_scorers_and_hygiene_detectors.py
-git commit -m "feat(portfolio-assessment): implement LES and MHS engines with drag and error detectors"
-```
 
 ---
 
 ### Task 5: Portfolio Orchestrator, Executive Markdown/CSV Reporters & CLI (`scorer.py`, `reporter.py`, `cli.py`)
 
 **Files:**
-- Create: `portfolio-assessment/src/portfolio_assessment/scorer.py`
-- Create: `portfolio-assessment/src/portfolio_assessment/reporter.py`
-- Create: `portfolio-assessment/src/portfolio_assessment/cli.py`
-- Create: `portfolio-assessment/README.md`
-- Modify: `Makefile` (root platform convenience target `assess-portfolio`)
-- Test: `portfolio-assessment/tests/test_cli_and_portfolio_e2e.py`
-
-**Interfaces:**
-- Consumes: Tasks 1–4 modules (`models`, `weights`, `xml_inspector`, `reference_resolver`, `extractability`, `hygiene`).
-- Produces:
-  - `scorer.discover_workbooks(scan_dirs: Sequence[Path], include_all_vintages: bool = False) -> list[Path]`
-  - `scorer.assess_workbook(xlsx_path: Path, reference_roots: Sequence[Path] = ()) -> tuple[WorkbookScorecard, list[CellDefectRecord], list[ExternalLinkAuditRecord]]`
-  - `scorer.assess_portfolio(scan_dirs: Sequence[Path], output_dir: Path, reference_roots: Sequence[Path] = (), include_all_vintages: bool = False) -> list[WorkbookScorecard]`
-  - `reporter.write_portfolio_reports(...) -> dict[str, Path]`
-  - `cli.main(argv: Sequence[str] | None = None) -> int`
+- Create: `src/portfolio_assessment/scorer.py`
+- Create: `src/portfolio_assessment/reporter.py`
+- Create: `src/portfolio_assessment/cli.py`
+- Create: `README.md`
+- Test: `tests/test_cli_and_portfolio_e2e.py`
 
 - [ ] **Step 1: Write the failing end-to-end test in `tests/test_cli_and_portfolio_e2e.py`**
 
-Create `portfolio-assessment/tests/test_cli_and_portfolio_e2e.py`:
+Create `tests/test_cli_and_portfolio_e2e.py`:
 ```python
 from __future__ import annotations
 
 from pathlib import Path
 
 from conftest import build_synthetic_xlsx
+
 from portfolio_assessment.cli import main
 from portfolio_assessment.scorer import discover_workbooks
 
@@ -2052,7 +2156,9 @@ def test_discover_workbooks_deduplicates_older_vintages_by_default(tmp_path: Pat
     assert len(all_files) == 4
 
 
-def test_cli_generates_markdown_and_csv_reports_across_synthetic_and_seed_models(tmp_path: Path) -> None:
+def test_cli_generates_markdown_and_csv_reports_across_synthetic_and_seed_models(
+    tmp_path: Path,
+) -> None:
     models_dir = tmp_path / "models"
     out_dir = tmp_path / "reports"
     models_dir.mkdir()
@@ -2064,7 +2170,8 @@ def test_cli_generates_markdown_and_csv_reports_across_synthetic_and_seed_models
     build_synthetic_xlsx(models_dir / "CleanModel202409.xlsx", sheets={"Main": clean_cells})
 
     dirty_cells = [{"r": f"{chr(67+i)}1", "v": str(2020 + i)} for i in range(6)] + [
-        {"r": f"{chr(67+i)}2", "t": "e", "f": "_xll.sjpoint(\"X\")", "v": "#VALUE!"} for i in range(6)
+        {"r": f"{chr(67+i)}2", "t": "e", "f": '_xll.sjpoint("X")', "v": "#VALUE!"}
+        for i in range(6)
     ]
     build_synthetic_xlsx(models_dir / "DirtyXll202409.xlsx", sheets={"Main": dirty_cells})
 
@@ -2089,12 +2196,12 @@ def test_cli_generates_markdown_and_csv_reports_across_synthetic_and_seed_models
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run (from `portfolio-assessment/`): `make test`
+Run: `pytest -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'portfolio_assessment.cli'`
 
-- [ ] **Step 3: Implement `scorer.py`, `reporter.py`, `cli.py`, `README.md`, and root `Makefile` target**
+- [ ] **Step 3: Implement `scorer.py`, `reporter.py`, `cli.py`, and `README.md`**
 
-Create `portfolio-assessment/src/portfolio_assessment/scorer.py`:
+Create `src/portfolio_assessment/scorer.py`:
 ```python
 """Portfolio discovery, vintage deduplication, and end-to-end workbook assessment."""
 
@@ -2111,7 +2218,7 @@ from portfolio_assessment.models import (
     ExternalLinkAuditRecord,
     WorkbookScorecard,
 )
-from portfolio_assessment.reference_resolver import resolve_workbook_external_links
+from portfolio_assessment.reference_resolver import PeerLookup, resolve_workbook_external_links
 from portfolio_assessment.reporter import write_portfolio_reports
 from portfolio_assessment.weights import classify_archetype, compute_mri_and_tier
 from portfolio_assessment.xml_inspector import scan_workbook_openxml
@@ -2125,8 +2232,9 @@ def _family_and_rank(path: Path) -> tuple[str, tuple[str, int]]:
     if not m:
         return (stem.lower(), ("999999", 1))
     family = stem[: m.start()].strip(" _-").lower()
+    if not family:
+        return (stem.lower(), ("999999", 1))
     vintage = m.group(1)
-    # Prefer canonical vintage file (e.g. Latinlr202409.xlsx) over suffixed draft ("Latinlr202409 3Q.xlsx")
     is_canonical = 1 if stem.lower() == f"{family}{vintage}" else 0
     return (family, (vintage, is_canonical))
 
@@ -2148,7 +2256,7 @@ def discover_workbooks(
                     p.is_file()
                     and p.suffix.lower() in (".xlsx", ".xlsm")
                     and not p.name.startswith("~$")
-                    and ".venv" not in p.parts
+                    and not {".venv", "tests", "reports"}.intersection(p.parts)
                 ):
                     found[p.resolve()] = p
 
@@ -2169,10 +2277,21 @@ def discover_workbooks(
 def assess_workbook(
     xlsx_path: Path,
     reference_roots: Sequence[Path] = (),
+    peer_cache: dict[Path, PeerLookup] | None = None,
 ) -> tuple[WorkbookScorecard, list[CellDefectRecord], list[ExternalLinkAuditRecord]]:
     """Run full read-only OpenXML + VBA + reference assessment on a single workbook."""
     scan = scan_workbook_openxml(xlsx_path)
-    link_audits = resolve_workbook_external_links(scan, reference_roots=reference_roots)
+    if peer_cache is not None and xlsx_path.resolve() not in peer_cache:
+        lookup: dict[tuple[str, str], str | None] = {}
+        for ps_name, ps_summary in scan.sheets.items():
+            for row_cells in ps_summary.cells_by_row.values():
+                for c in row_cells:
+                    lookup[(ps_name, c.coord)] = c.value
+        peer_cache[xlsx_path.resolve()] = (set(scan.sheets.keys()), lookup)
+
+    link_audits = resolve_workbook_external_links(
+        scan, reference_roots=reference_roots, peer_cache=peer_cache
+    )
     les, e_stats = compute_extractability_pillar(scan)
     mhs, defects, h_stats = compute_hygiene_pillar(scan, link_audits)
 
@@ -2201,7 +2320,11 @@ def assess_workbook(
         mri=mri,
         readiness_tier=tier,
         recommended_action=action,
-        telemetry={**e_stats, **h_stats, "external_links_declared": len(scan.declared_external_links)},
+        telemetry={
+            **e_stats,
+            **h_stats,
+            "external_links_declared": len(scan.declared_external_links),
+        },
     )
     return scorecard, defects, link_audits
 
@@ -2217,9 +2340,12 @@ def assess_portfolio(
     scorecards: list[WorkbookScorecard] = []
     all_defects: list[CellDefectRecord] = []
     all_links: list[ExternalLinkAuditRecord] = []
+    shared_peer_cache: dict[Path, PeerLookup] = {}
 
     for wb_path in workbooks:
-        sc, defs, lnks = assess_workbook(wb_path, reference_roots=reference_roots)
+        sc, defs, lnks = assess_workbook(
+            wb_path, reference_roots=reference_roots, peer_cache=shared_peer_cache
+        )
         scorecards.append(sc)
         all_defects.extend(defs)
         all_links.extend(lnks)
@@ -2229,7 +2355,7 @@ def assess_portfolio(
     return scorecards
 ```
 
-Create `portfolio-assessment/src/portfolio_assessment/reporter.py`:
+Create `src/portfolio_assessment/reporter.py`:
 ```python
 """Executive Markdown scorecard and CSV evidence writers."""
 
@@ -2274,7 +2400,11 @@ def write_portfolio_reports(
         "",
         "## 1. Executive Headline Summary (`MRI`, `LES`, `MHS`, `Defect Rate`)",
         "",
-        "| Rank | Workbook | Archetype | Populated Cells | Formulas | `LES` (Extractability) | `MHS` (Hygiene) | Defect Rate (`100-MHS`) | Overall `MRI` | Readiness Tier |",
+        (
+            "| Rank | Workbook | Archetype | Populated Cells | Formulas | "
+            "`LES` (Extractability) | `MHS` (Hygiene) | Defect Rate (`100-MHS`) | "
+            "Overall `MRI` | Readiness Tier |"
+        ),
         "| :---: | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | :--- |",
     ]
 
@@ -2290,7 +2420,10 @@ def write_portfolio_reports(
             "",
             "## 2. Pillar 1 Breakdown — Logic Extractability Score (`LES`) With Dynamic Archetype Weights",
             "",
-            "| Workbook | `LES` | `E1` Formula/UDF | `E2` Macros | `E3` Graph | `E4` Ext Feeds | `E5` Time-Series |",
+            (
+                "| Workbook | `LES` | `E1` Formula/UDF | `E2` Macros | "
+                "`E3` Graph | `E4` Ext Feeds | `E5` Time-Series |"
+            ),
             "| :--- | ---: | :---: | :---: | :---: | :---: | :---: |",
         ]
     )
@@ -2298,7 +2431,8 @@ def write_portfolio_reports(
         em = {s.code: s for s in sc.les.sub_metrics}
         lines.append(
             f"| `{sc.workbook_name}` | **{sc.les.score:.1f}%** | {_fmt_sub(em['E1'])} | "
-            f"{_fmt_sub(em['E2'])} | {_fmt_sub(em['E3'])} | {_fmt_sub(em['E4'])} | {_fmt_sub(em['E5'])} |"
+            f"{_fmt_sub(em['E2'])} | {_fmt_sub(em['E3'])} | "
+            f"{_fmt_sub(em['E4'])} | {_fmt_sub(em['E5'])} |"
         )
 
     lines.extend(
@@ -2306,7 +2440,10 @@ def write_portfolio_reports(
             "",
             "## 3. Pillar 2 Breakdown — Model Hygiene Score (`MHS`) With Dynamic Archetype Weights",
             "",
-            "| Workbook | `MHS` | Defect Rate | `H1` Cell Errors | `H2` Drag/Continuity | `H3` Refs/Names | `H4` Link Hygiene | `H5` Calc/Bloat |",
+            (
+                "| Workbook | `MHS` | Defect Rate | `H1` Cell Errors | "
+                "`H2` Drag/Continuity | `H3` Refs/Names | `H4` Link Hygiene | `H5` Calc/Bloat |"
+            ),
             "| :--- | ---: | ---: | :---: | :---: | :---: | :---: | :---: |",
         ]
     )
@@ -2323,15 +2460,15 @@ def write_portfolio_reports(
         lines.append(f"### `{sc.workbook_name}` — `MRI: {sc.mri:.1f}%` ({sc.readiness_tier})")
         lines.append(f"- **Recommended Action:** {sc.recommended_action}")
         for s in [*sc.les.sub_metrics, *sc.mhs.sub_metrics]:
-            if s.applicable:
+            if s.applicable and s.score is not None:
                 lines.append(
-                    f"- **`{s.code}` {s.title} (`{s.score:.1f}%`, eff. weight `{s.effective_weight*100:.1f}%`):** {s.summary}"
+                    f"- **`{s.code}` {s.title} (`{s.score:.1f}%`, "
+                    f"eff. weight `{s.effective_weight*100:.1f}%`):** {s.summary}"
                 )
         lines.append("")
 
     md_path.write_text("\n".join(lines), encoding="utf-8")
 
-    # Write Scorecard CSV
     csv_headers = [
         "workbook_name",
         "archetype",
@@ -2364,8 +2501,8 @@ def write_portfolio_reports(
         writer = csv.writer(fp)
         writer.writerow(csv_headers)
         for sc in scorecards:
-            em = {s.code: s.score for s in sc.les.sub_metrics}
-            hm = {s.code: s.score for s in sc.mhs.sub_metrics}
+            em_s = {s.code: s.score for s in sc.les.sub_metrics}
+            hm_s = {s.code: s.score for s in sc.mhs.sub_metrics}
             writer.writerow(
                 [
                     sc.workbook_name,
@@ -2380,16 +2517,16 @@ def write_portfolio_reports(
                     sc.defect_rate,
                     sc.mri,
                     sc.readiness_tier,
-                    em["E1"],
-                    em["E2"],
-                    em["E3"],
-                    em["E4"],
-                    em["E5"],
-                    hm["H1"],
-                    hm["H2"],
-                    hm["H3"],
-                    hm["H4"],
-                    hm["H5"],
+                    em_s["E1"],
+                    em_s["E2"],
+                    em_s["E3"],
+                    em_s["E4"],
+                    em_s["E5"],
+                    hm_s["H1"],
+                    hm_s["H2"],
+                    hm_s["H3"],
+                    hm_s["H4"],
+                    hm_s["H5"],
                     sc.telemetry.get("xll_udf_cells", 0),
                     sc.telemetry.get("unintentional_error_cells", 0),
                     sc.telemetry.get("drag_and_island_cells", 0),
@@ -2399,9 +2536,29 @@ def write_portfolio_reports(
 
     with defects_path.open("w", newline="", encoding="utf-8") as fp:
         writer = csv.writer(fp)
-        writer.writerow(["workbook_name", "sheet_name", "cell_coord", "sub_metric", "defect_type", "severity", "detail"])
+        writer.writerow(
+            [
+                "workbook_name",
+                "sheet_name",
+                "cell_coord",
+                "sub_metric",
+                "defect_type",
+                "severity",
+                "detail",
+            ]
+        )
         for d in defects:
-            writer.writerow([d.workbook_name, d.sheet_name, d.cell_coord, d.sub_metric, d.defect_type, d.severity, d.detail])
+            writer.writerow(
+                [
+                    d.workbook_name,
+                    d.sheet_name,
+                    d.cell_coord,
+                    d.sub_metric,
+                    d.defect_type,
+                    d.severity,
+                    d.detail,
+                ]
+            )
 
     with links_path.open("w", newline="", encoding="utf-8") as fp:
         writer = csv.writer(fp)
@@ -2447,7 +2604,7 @@ def write_portfolio_reports(
     }
 ```
 
-Create `portfolio-assessment/src/portfolio_assessment/cli.py`:
+Create `src/portfolio_assessment/cli.py`:
 ```python
 """CLI entrypoint for scanning modeling workbooks and generating LES/MHS/MRI scorecards."""
 
@@ -2460,25 +2617,39 @@ from pathlib import Path
 from portfolio_assessment.scorer import assess_portfolio
 
 
-def _default_workspace_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+def _package_project_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _default_scan_dirs() -> list[Path]:
+    pkg_root = _package_project_root()
+    platform_root = pkg_root.parent
+    monorepo_dirs = [
+        platform_root / "brazil-power-v13" / "seed",
+        platform_root / "Eulr",
+        platform_root / "other models",
+    ]
+    existing = [d for d in monorepo_dirs if d.exists()]
+    if existing:
+        return existing
+    workbooks_dir = pkg_root / "workbooks"
+    return [workbooks_dir] if workbooks_dir.exists() else [pkg_root]
 
 
 def build_parser() -> argparse.ArgumentParser:
-    root = _default_workspace_root()
+    pkg_root = _package_project_root()
     parser = argparse.ArgumentParser(
         prog="assess-portfolio",
-        description="Compute Logic Extractability (LES), Model Hygiene (MHS), and Modernization Readiness (MRI).",
+        description=(
+            "Compute Logic Extractability (LES), Model Hygiene (MHS), "
+            "and Modernization Readiness (MRI)."
+        ),
     )
     parser.add_argument(
         "--scan-dirs",
         nargs="+",
         type=Path,
-        default=[
-            root / "brazil-power-v13" / "seed",
-            root / "Eulr",
-            root / "other models",
-        ],
+        default=_default_scan_dirs(),
         help="Directories or .xlsx/.xlsm files to scan (read-only).",
     )
     parser.add_argument(
@@ -2486,12 +2657,12 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="*",
         type=Path,
         default=[],
-        help="Optional local/synced SharePoint/OneDrive folders on S&P laptop to confirm external links & drift.",
+        help="Optional local/synced SharePoint/OneDrive folders to confirm external links & drift.",
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=root / "portfolio-assessment" / "reports",
+        default=pkg_root / "reports",
         help="Output directory for Markdown and CSV scorecards.",
     )
     parser.add_argument(
@@ -2514,7 +2685,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     for sc in scorecards:
         print(
             f"  {sc.workbook_name:48s} | LES={sc.les.score:5.1f}% | "
-            f"MHS={sc.mhs.score:5.1f}% (Defect={sc.defect_rate:4.1f}%) | MRI={sc.mri:5.1f}% | {sc.readiness_tier}"
+            f"MHS={sc.mhs.score:5.1f}% (Defect={sc.defect_rate:4.1f}%) | "
+            f"MRI={sc.mri:5.1f}% | {sc.readiness_tier}"
         )
     return 0
 
@@ -2523,7 +2695,7 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-Create `portfolio-assessment/README.md`:
+Create `README.md`:
 ```markdown
 # Portfolio Assessment — Workbook Modernization Scoring (`LES`, `MHS`, `MRI`)
 
@@ -2532,60 +2704,28 @@ Read-only OpenXML + MS-OVBA scanner evaluating candidate spreadsheets across:
 - **Model Hygiene Score (`MHS`, 0–100%)** + **Defect Rate (`100% - MHS`)**
 - **Modernization Readiness Index (`MRI`, 0–100%)**
 
-## Quickstart
+## Quickstart (Standalone or S&P Corporate Laptop)
 
 ```bash
-# Run lint + unit/E2E tests
-make -C portfolio-assessment lint
-make -C portfolio-assessment test
-
-# Scan workspace models (offline link hygiene mode)
-PYTHONPATH=portfolio-assessment/src .venv/bin/python -m portfolio_assessment.cli
-
-# Scan on S&P Corporate Laptop with live SharePoint/OneDrive reference verification
-PYTHONPATH=portfolio-assessment/src .venv/bin/python -m portfolio_assessment.cli \
-  --scan-dirs "brazil-power-v13/seed" "Eulr" "other models" \
-  --reference-roots "Eulr/docs/references" "$HOME/OneDrive - S&P Global"
-```
+# macOS / Linux
+PYTHONPATH=src python3 -m portfolio_assessment.cli \
+  --scan-dirs "./workbooks" \
+  --reference-roots "./workbooks" "$HOME/OneDrive - S&P Global"
 ```
 
-Modify root `Makefile` (`commodity-modeling-sheets-platform/Makefile`) to add `lint-assessment`, `test-assessment`, and `assess-portfolio`:
-```makefile
-.PHONY: lint-brazil test-brazil check-brazil lint-assessment test-assessment assess-portfolio lint-all test-all
-
-lint-brazil:
-	$(MAKE) -C brazil-power-v13 lint
-
-test-brazil:
-	$(MAKE) -C brazil-power-v13 test
-
-check-brazil: lint-brazil test-brazil
-
-lint-assessment:
-	$(MAKE) -C portfolio-assessment lint
-
-test-assessment:
-	$(MAKE) -C portfolio-assessment test
-
-assess-portfolio:
-	$(MAKE) -C portfolio-assessment run
-
-lint-all: lint-brazil lint-assessment
-
-test-all: test-brazil test-assessment
+```powershell
+# Windows PowerShell (S&P Corporate Laptop)
+$env:PYTHONPATH = "src"
+python -m portfolio_assessment.cli `
+  --scan-dirs ".\workbooks" `
+  --reference-roots ".\workbooks" "$env:USERPROFILE\OneDrive - S&P Global"
+```
 ```
 
 - [ ] **Step 4: Run full lint, test suite, and live portfolio scan to verify PASS**
 
-Run (from platform root):
+Run:
 ```bash
-make lint-all && make test-all && PYTHONPATH=portfolio-assessment/src .venv/bin/python -m portfolio_assessment.cli --reference-roots Eulr/docs/references
+ruff check src tests && pytest -v
 ```
-Expected: `All checks passed!`, all `brazil-power-v13` (`31`) and `portfolio-assessment` (`13`) tests PASS, and `portfolio-assessment/reports/portfolio_executive_scorecard.md` + CSV reports are generated in `< 20 seconds`.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add Makefile portfolio-assessment/README.md portfolio-assessment/src/portfolio_assessment/scorer.py portfolio-assessment/src/portfolio_assessment/reporter.py portfolio-assessment/src/portfolio_assessment/cli.py portfolio-assessment/tests/test_cli_and_portfolio_e2e.py
-git commit -m "feat(portfolio-assessment): add CLI, Markdown/CSV executive scorecard reporters, and E2E tests"
-```
+Expected: `All checks passed!` and `13 passed`.
