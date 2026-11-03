@@ -158,6 +158,14 @@ Each workbook is tagged with a human-readable **Archetype Badge** derived from i
   * Empty formatting shell bloat: let $b = \frac{\text{empty\_styled\_c\_elements}}{\max(\text{total\_c\_elements}, 1)}$; if $b > 0.35$, deduct $\min(25.0,\; 50.0 \times (b - 0.35))$.
   * $$H_5 = \operatorname{clamp}_{[0, 100]}(\text{score})$$
 
+### 4.4 Optional Live Reference Confirmation on Corporate Network (`--reference-roots`)
+When executed on an S&P corporate laptop with synced SharePoint/OneDrive folders or mounted UNC drives (`--reference-roots <dir1> <dir2> ...`), the scanner augments syntactic `H4`/`E4` link classification with empirical target verification (`portfolio_external_links_audit.csv`):
+1. Searches `--reference-roots` (and direct UNC/local paths if accessible) for each referenced external filename/path suffix.
+2. When a target `.xlsx`/`.xlsm` file is found locally:
+   * Verifies that every referenced `source_sheet` exists (`RESOLVED_SHEET_MISSING` if absent).
+   * Compares direct cell references (`'[idx]Sheet'!$A$1`) against the host workbook's cached `<v>` value (`CONFIRMED_EXACT_MATCH` within $10^{-8}$ vs. `CONFIRMED_STALE_CACHE_DRIFT` with max relative delta).
+3. Emits a dedicated `portfolio_external_links_audit.csv` report detailing syntactic tier, resolution status, matched local/UNC file path, verified cell count, and stale-cache drift count per external link.
+
 ---
 
 ## 5. Overall Score (`MRI`) & Readiness Tiers
