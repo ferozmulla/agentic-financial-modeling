@@ -15,6 +15,18 @@ _ADV_RE = re.compile(r"(\bOFFSET\s*\(|_xlfn\.[a-z0-9_]+\s*\()", re.IGNORECASE)
 _VOLATILE_RE = re.compile(r"\b(NOW|TODAY|RAND|RANDBETWEEN|CELL)\s*\(", re.IGNORECASE)
 
 
+def _classify_formula_template(ft: str) -> tuple[bool, str]:
+    """Return (is_volatile, bucket) cached per unique formula string."""
+    is_vol = bool(_VOLATILE_RE.search(ft))
+    if _OPAQUE_RE.search(ft):
+        return (is_vol, "opaque")
+    if _XLL_RE.search(ft):
+        return (is_vol, "xll")
+    if _ADV_RE.search(ft):
+        return (is_vol, "adv")
+    return (is_vol, "std")
+
+
 def compute_extractability_pillar(scan: WorkbookScanResult) -> tuple[PillarScore, dict[str, int]]:
     """Compute LES (0-100%) and sub-metrics E1..E5 across active workbook surfaces."""
     n_f = scan.total_formula_cells
@@ -23,6 +35,7 @@ def compute_extractability_pillar(scan: WorkbookScanResult) -> tuple[PillarScore
     opaque_cells = 0
     cse_or_adv_cells = 0
     volatile_cells = 0
+    template_cache: dict[str, tuple[bool, str]] = {}
 
     for sh in scan.sheets.values():
         for row_cells in sh.cells_by_row.values():
@@ -30,18 +43,22 @@ def compute_extractability_pillar(scan: WorkbookScanResult) -> tuple[PillarScore
                 if c.formula is None:
                     continue
                 ft = c.formula
-                if _VOLATILE_RE.search(ft):
+                cached_cls = template_cache.get(ft)
+                if cached_cls is None:
+                    cached_cls = _classify_formula_template(ft)
+                    template_cache[ft] = cached_cls
+                is_vol, bucket = cached_cls
+                if is_vol:
                     volatile_cells += 1
-                if _OPAQUE_RE.search(ft):
+                if bucket == "opaque":
                     opaque_cells += 1
-                    credit_sum += 0.0
-                elif _XLL_RE.search(ft):
+                elif bucket == "xll":
                     xll_cells += 1
-                    if c.value is not None and c.value != "#NAME?":
-                        credit_sum += 0.50
+                    if c.value is not None and c.ctype != "e":
+                        credit_sum += 0.25
                     else:
                         opaque_cells += 1
-                elif c.is_array_cse or _ADV_RE.search(ft):
+                elif c.is_array_cse or bucket == "adv":
                     cse_or_adv_cells += 1
                     credit_sum += 0.85
                 else:
@@ -52,7 +69,7 @@ def compute_extractability_pillar(scan: WorkbookScanResult) -> tuple[PillarScore
     e1_score = clamp(100.0 * (credit_sum / max(n_f, 1))) if a_e1 else None
     e1_summary = (
         f"{n_f:,} formulas ({xll_cells:,} XLL UDF, "
-        f"{cse_or_adv_cells:,} CSE/OFFSET/_xlfn, {opaque_cells:,} opaque)"
+        f"{cse_or_adv_cells:,} CSE/OFFSET/_xlfn, {opaque_cells:,} opaque/failed-XLL)"
         if a_e1
         else "N/A (0 formulas)"
     )
@@ -98,12 +115,13 @@ def compute_extractability_pillar(scan: WorkbookScanResult) -> tuple[PillarScore
         iter_desc = f"Iterative (iterateCount={iter_cnt})" if is_iter else "Acyclic DAG"
         e3_summary = f"{iter_desc}, {volatile_cells:,} volatile cells"
 
-    # E4: External Feed & Connection Decoupling
+    # E4: External Feed & Connection Decoupling (includes proprietary _xll.* desktop feeds)
     active_ext_books = len({r.link_index for r in scan.active_ext_refs})
     a_e4 = (
         scan.ext_formula_cell_count > 0
         or scan.has_connections_xml
         or scan.external_pivot_caches > 0
+        or xll_cells > 0
     )
     if not a_e4:
         e4_score = None
@@ -119,11 +137,15 @@ def compute_extractability_pillar(scan: WorkbookScanResult) -> tuple[PillarScore
             sc4 -= 18.0
         if scan.external_pivot_caches > 0:
             sc4 -= 10.0
+        if xll_cells > 0:
+            xll_share = xll_cells / max(n_f, 1)
+            sc4 -= min(28.0, 8.0 + 40.0 * xll_share)
         sc4 -= min(10.0, 0.15 * active_ext_books)
         e4_score = clamp(sc4)
         e4_summary = (
             f"{scan.ext_formula_cell_count:,} ext-link cells ({cache_cov*100:.1f}% cached) "
-            f"across {active_ext_books} active books; connections.xml={scan.has_connections_xml}"
+            f"across {active_ext_books} books, {xll_cells:,} XLL feed cells; "
+            f"connections.xml={scan.has_connections_xml}"
         )
 
     # E5: Time-Series & R1C1 Structural Regularity

@@ -61,8 +61,8 @@ Each workbook is tagged with a human-readable **Archetype Badge** derived from i
 ### `E1` — Formula & UDF Portability (Base Weight `0.35`)
 * **Gate ($a_{E1}$):** `1` iff `total_formula_cells >= 1`, else `0`.
 * **Cell Credit Assignment ($c_f \in [0.0, 1.0]$ per formula cell $f$):**
-  1. **`0.00` (Opaque / Unextractable):** Formula invokes `INDIRECT(`, `RTD(`, `CUBEVALUE(`, `CUBEMEMBER(`, `CALL(`, or contains `_xll.` / add-in UDFs **without** a valid numeric/string cached `<v>` value (or where cached `<v>` is `#NAME?`).
-  2. **`0.50` (Proprietary XLL Feed With Cached `<v>`):** Formula invokes `_xll.` (case-insensitive, e.g., `_xll.sjpoint(...)`) and carries a non-`#NAME?` cached `<v>` value (extractable via BigQuery data-connector replacement rather than pure formula compilation).
+  1. **`0.00` (Opaque / Unextractable):** Formula invokes `INDIRECT(`, `RTD(`, `CUBEVALUE(`, `CUBEMEMBER(`, `CALL(`, or contains `_xll.` / add-in UDFs **without** a valid non-error cached `<v>` value (`ctype == "e"` or `value is None`).
+  2. **`0.25` (Proprietary XLL Feed With Non-Error Cached `<v>`):** Formula invokes `_xll.` (case-insensitive, e.g., `_xll.sjpoint(...)`) and carries a non-error cached `<v>` value (cached snapshot exists, but compiled C++ add-in logic requires a dedicated BigQuery data-connector replacement).
   3. **`0.85` (Compilable Advanced / Array Construct):** Formula is a `{=CSE}` array formula (`t="array"`), calls `OFFSET(`, or uses `_xlfn.` prefixed functions (without falling into rules 1–2).
   4. **`1.00` (Native Standard Formula):** All standard deterministic spreadsheet formulas (`SUM`, `IF`, `IFERROR`, `SUMIFS`, `INDEX`, `MATCH`, `VLOOKUP`, `HLOOKUP`, `SUMPRODUCT`, `IRR`, `NPV`, `MIN`, `MAX`, `AVERAGE`, `EOMONTH`, `DATE`, arithmetic, etc.).
 * **Equation:**
@@ -73,7 +73,7 @@ Each workbook is tagged with a human-readable **Archetype Badge** derived from i
 * **Equation (when $a_{E2} = 1$):**
   * If VBA project stream is locked/unreadable or contains `DPB=` protection without readable module source: $E_2 = 20.0$.
   * Otherwise start at `95.0` and apply bounded deductions:
-    * `-35.0` if Win32 `Declare Function` / `Declare PtrSafe` or `Shell(` or `.dll` calls appear.
+    * `-35.0` if Win32 `Declare Function` / `Declare PtrSafe`, `Shell(`, `WScript.Shell`, or `URLDownloadToFile` calls appear (excluding built-in Excel `VBE7.DLL` host stream headers).
     * `-20.0` if external desktop COM/DB objects (`CreateObject("ADODB`, `DAO.`, `Scripting.FileSystemObject`, `Workbooks.Open`) appear.
     * `-5.0` if total procedural VBA lines $> 500$ (and `-5.0` additional if $> 1,500$ lines).
     * $$E_2 = \operatorname{clamp}_{[0, 100]}(\text{score})$$
@@ -90,11 +90,12 @@ Each workbook is tagged with a human-readable **Archetype Badge** derived from i
   * $$E_3 = \operatorname{clamp}_{[0, 100]}(\text{score})$$
 
 ### `E4` — External Feed & Connection Decoupling (Base Weight `0.15`)
-* **Gate ($a_{E4}$):** `1` iff `active_ext_link_formula_cells > 0` OR `xl/connections.xml` exists OR external `pivotCache` exists; else `0` (`N/A`).
+* **Gate ($a_{E4}$):** `1` iff `active_ext_link_formula_cells > 0` OR `xll_udf_cells > 0` OR `xl/connections.xml` exists OR external `pivotCache` exists; else `0` (`N/A`).
 * **Equation (when $a_{E4} = 1$):**
   * If `active_ext_link_formula_cells > 0`, let $c_{\text{cache}} \in [0, 1]$ be the fraction of external-link formula cells carrying a valid non-missing, non-`#REF!` cached `<v>` value; base score $= 88.0 \times c_{\text{cache}}$. If `active_ext_link_formula_cells == 0`, base score $= 88.0$.
   * Deduct `18.0` if `xl/connections.xml` defines external ODBC/OLEDB/SQL/Web connections.
   * Deduct `10.0` if external PivotTable caches without embedded sheet source exist.
+  * Deduct $\min(28.0,\; 8.0 + 40.0 \times \frac{\text{xll\_udf\_cells}}{\text{total\_formula\_cells}})$ if `xll_udf_cells > 0` (proprietary desktop add-in feed replacement).
   * Deduct $\min(10.0,\; 0.15 \times \text{active\_external\_workbook\_count})$ for multi-workbook fan-in complexity.
   * $$E_4 = \operatorname{clamp}_{[0, 100]}(\text{score})$$
 
@@ -145,9 +146,12 @@ Each workbook is tagged with a human-readable **Archetype Badge** derived from i
   * **`0.5` (`PRIOR_VINTAGE_DRIFT`):** Corporate SharePoint link whose filename/folder carries an older `20\d{4}` vintage tag than the host workbook (e.g., `LR202406` or `LR202309` referenced inside an `LR202409` workbook).
   * **`0.0` (`GHOST_OR_LOCAL_PATH`):** Local drive paths (`file:///C:\...`, `file:///D:\...`, `file:///E:\...`, `/Users/.../Downloads/...`), personal OneDrive (`-my.sharepoint.com/personal/`), legacy Windows UNC shares (`\\hou0\...`), or broken/unresolvable targets.
 * **Equation (when $a_{H4} = 1$):**
-  * `active_cell_link_score` ($S_{\text{active}}$): Cell-weighted average link health (`0..100`) across all `active_ext_link_formula_cells` (or `link_table_avg` if `0` active cells).
-  * `orphan_link_ratio` ($r_{\text{orphan}}$): Fraction of declared `xl/externalLinks` entries referenced by `0` formulas in the workbook (`orphan` link-table bloat).
-  * $$H_4 = \operatorname{clamp}_{[0, 100]}\bigl(0.75 \cdot S_{\text{active}} + 25.0 \cdot (1.0 - r_{\text{orphan}})\bigr)$$
+  * If `active_ext_link_formula_cells == 0` (dormant/unpruned metadata stubs only, zero live external formula dependencies):
+    $$H_4 = \operatorname{clamp}_{[55, 85]}(85.0 - 1.5 \cdot N_{\text{orphan}} - 0.5 \cdot N_{\text{ghost}})$$
+  * Otherwise (`active_ext_link_formula_cells >= 1`):
+    * `active_cell_link_score` ($S_{\text{active}}$): Cell-weighted average link health (`0..100`) across all `active_ext_link_formula_cells`.
+    * `orphan_link_ratio` ($r_{\text{orphan}}$): Fraction of declared `xl/externalLinks` entries referenced by `0` formulas in the workbook (`orphan` link-table bloat).
+    * $$H_4 = \operatorname{clamp}_{[0, 100]}\bigl(0.75 \cdot S_{\text{active}} + 25.0 \cdot (1.0 - r_{\text{orphan}}) - 10.0 \cdot N_{\text{missing\_sheets}}\bigr)$$
 
 ### `H5` — Calculation State & Sheet Hygiene (Base Weight `0.10`)
 * **Gate ($a_{H5}$):** Always `1`.

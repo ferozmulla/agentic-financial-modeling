@@ -17,10 +17,10 @@ class VBAInspectionSummary:
 
 
 _ASCII_RUN_RE = re.compile(rb"[\x09\x0a\x0d\x20-\x7e]{6,}")
-_MOD_NAME_RE = re.compile(r'Attribute\s+VB_Name\s*=\s*"([^"]+)"', re.IGNORECASE)
+_MOD_NAME_RE = re.compile(r'Attribute\s+VB_Name\s*=\s*"([A-Za-z0-9_]+)"', re.IGNORECASE)
 _PROC_TOKEN_RE = re.compile(r"\b(Sub|Function|Property\s+Get|Property\s+Let)\b", re.IGNORECASE)
 _WIN32_RE = re.compile(
-    r"\b(Declare\s+(?:PtrSafe\s+)?(?:Function|Sub)|Shell\s*\(|\.dll\b)",
+    r"\b(Declare\s+(?:PtrSafe\s+)?(?:Function|Sub)|(?:Call\s+)?Shell\s*\(|WScript\.Shell|URLDownloadToFile)",
     re.IGNORECASE,
 )
 _COM_DB_RE = re.compile(
@@ -34,13 +34,15 @@ def inspect_vba_project_bytes(data: bytes) -> VBAInspectionSummary:
     if not data or len(data) < 16:
         return VBAInspectionSummary(False, False, 0, False, False, [])
 
-    chunks = [m.group(0).decode("latin-1", errors="ignore") for m in _ASCII_RUN_RE.finditer(data)]
-    stripped = re.sub(rb"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\xff]+", b" ", data).decode(
+    # Strip MS-OVBA LZNT1 single-byte compression flag bytes between printable ASCII bytes
+    deflagged = re.sub(rb"(?<=[\x20-\x7e])[\x00-\x08\x0b\x0c\x0e-\x1f\x80-\xff](?=[\x20-\x7e])", b"", data)
+    chunks = [m.group(0).decode("latin-1", errors="ignore") for m in _ASCII_RUN_RE.finditer(deflagged)]
+    stripped = re.sub(rb"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\xff]+", b" ", deflagged).decode(
         "latin-1", errors="ignore"
     )
     combined_text = "\n".join(chunks)
 
-    module_names = sorted(set(_MOD_NAME_RE.findall(combined_text)))
+    module_names = sorted(set(_MOD_NAME_RE.findall(combined_text)) | set(_MOD_NAME_RE.findall(stripped)))
     lines = [
         ln.strip()
         for ln in combined_text.splitlines()

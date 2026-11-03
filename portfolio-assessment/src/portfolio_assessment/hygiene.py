@@ -45,9 +45,10 @@ def _scan_line_for_islands_and_drift(
     fill_glitches = 0
 
     # 1. Hardcoded Value Islands inside dominant R1C1 runs (>= 6 matching formula cells)
+    min_run_cnt = 6 if is_row else max(6, int(0.55 * len(ordered)))
     sig_counts = Counter(c.r1c1_sig for c in ordered if c.r1c1_sig is not None)
     for sig, cnt in sig_counts.items():
-        if cnt < 6:
+        if cnt < min_run_cnt:
             continue
         positions = [i for i, c in enumerate(ordered) if c.r1c1_sig == sig]
         first_i, last_i = positions[0], positions[-1]
@@ -172,6 +173,7 @@ def compute_hygiene_pillar(
     wb_name = scan.path.name
     defects: list[CellDefectRecord] = []
     valid_sheets_lower = {s.lower() for s in scan.sheet_names}
+    dead_ref_cache: dict[str, bool] = {}
 
     err_counts: Counter[str] = Counter()
     intentional_na = 0
@@ -211,16 +213,19 @@ def compute_hygiene_pillar(
                                 )
                             )
 
-                # H3: In-formula literal #REF! or missing internal sheet
+                # H3: In-formula literal #REF! or missing internal sheet (cached per formula template)
                 if c.formula:
-                    unquoted_f = _STR_LIT_RE.sub('""', c.formula)
-                    has_dead = "#REF!" in unquoted_f
-                    if not has_dead and "[" not in unquoted_f:
-                        for sm in _SHEET_REF_RE.finditer(unquoted_f):
-                            ref_sh = (sm.group(1) or sm.group(2)).replace("''", "'")
-                            if ref_sh.lower() not in valid_sheets_lower:
-                                has_dead = True
-                                break
+                    has_dead = dead_ref_cache.get(c.formula)
+                    if has_dead is None:
+                        unquoted_f = _STR_LIT_RE.sub('""', c.formula)
+                        has_dead = "#REF!" in unquoted_f
+                        if not has_dead and "[" not in unquoted_f and "!" in unquoted_f:
+                            for sm in _SHEET_REF_RE.finditer(unquoted_f):
+                                ref_sh = (sm.group(1) or sm.group(2)).replace("''", "'")
+                                if ref_sh.lower() not in valid_sheets_lower:
+                                    has_dead = True
+                                    break
+                        dead_ref_cache[c.formula] = has_dead
                     if has_dead:
                         dead_formula_refs += 1
                         if len(defects) < 500:
@@ -309,29 +314,32 @@ def compute_hygiene_pillar(
         h4_summary = "N/A (0 external links)"
     else:
         total_active_refs = sum(a.active_formula_refs for a in link_audits)
-        if total_active_refs > 0:
+        orphans = sum(1 for a in link_audits if a.active_formula_refs == 0)
+        ghosts = sum(1 for a in link_audits if a.link_health_tier == "GHOST_OR_LOCAL_PATH")
+        drifts = sum(1 for a in link_audits if a.link_health_tier == "PRIOR_VINTAGE_DRIFT")
+        if total_active_refs == 0:
+            # Zero active formula references -> unpruned dormant link stubs only (not live broken feeds)
+            h4_score = clamp(85.0 - 1.5 * orphans - 0.5 * ghosts, 55.0, 85.0)
+            h4_summary = (
+                f"{n_decl_ext} dormant/unused link stubs (0 active formula refs; "
+                f"{ghosts} legacy local/ghost paths)"
+            )
+        else:
             active_link_score = 100.0 * (
                 sum(a.syntactic_score * a.active_formula_refs for a in link_audits)
                 / total_active_refs
             )
-        else:
-            active_link_score = 100.0 * (
-                sum(a.syntactic_score for a in link_audits) / max(len(link_audits), 1)
+            orphan_ratio = orphans / max(len(link_audits), 1)
+            sc4 = 0.75 * active_link_score + 25.0 * (1.0 - orphan_ratio)
+            missing_sheet_links = sum(
+                1 for a in link_audits if a.resolution_status == "RESOLVED_SHEET_MISSING"
             )
-        orphans = sum(1 for a in link_audits if a.active_formula_refs == 0)
-        orphan_ratio = orphans / max(len(link_audits), 1)
-        sc4 = 0.75 * active_link_score + 25.0 * (1.0 - orphan_ratio)
-        missing_sheet_links = sum(
-            1 for a in link_audits if a.resolution_status == "RESOLVED_SHEET_MISSING"
-        )
-        sc4 -= 10.0 * missing_sheet_links
-        h4_score = clamp(sc4)
-        ghosts = sum(1 for a in link_audits if a.link_health_tier == "GHOST_OR_LOCAL_PATH")
-        drifts = sum(1 for a in link_audits if a.link_health_tier == "PRIOR_VINTAGE_DRIFT")
-        h4_summary = (
-            f"{n_decl_ext} declared links "
-            f"({orphans} unused, {drifts} vintage-drift, {ghosts} local/ghost)"
-        )
+            sc4 -= 10.0 * missing_sheet_links
+            h4_score = clamp(sc4)
+            h4_summary = (
+                f"{n_decl_ext} declared links "
+                f"({orphans} unused, {drifts} vintage-drift, {ghosts} local/ghost)"
+            )
 
     # H5 Score (Always active)
     sc5 = 100.0

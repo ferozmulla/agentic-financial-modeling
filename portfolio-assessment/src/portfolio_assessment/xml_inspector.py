@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import io
 import re
 import urllib.parse
+import xml.etree.ElementTree as CElementTree
 import zipfile
 from collections import defaultdict
 from dataclasses import dataclass
@@ -12,7 +14,7 @@ from pathlib import Path
 try:
     import defusedxml.ElementTree as SafeET
 except ImportError:  # pragma: no cover
-    import xml.etree.ElementTree as SafeET  # Python 3.11+ expat blocks external entities
+    import xml.etree.ElementTree as SafeET
 
 from portfolio_assessment.vba_inspector import VBAInspectionSummary, inspect_vba_project_bytes
 
@@ -93,6 +95,15 @@ def _resolve_xl_target(raw_target: str) -> str:
     return cleaned if cleaned.startswith("xl/") else f"xl/{cleaned}"
 
 
+def _safe_xml_stream(zf: zipfile.ZipFile, member: str) -> io.BytesIO:
+    """Read XML member into memory after rejecting DTD/ENTITY declarations for fast C iterparse."""
+    raw = zf.read(member)
+    head = raw[:8192].upper()
+    if b"<!DOCTYPE" in head or b"<!ENTITY" in head:
+        raise ValueError(f"Disallowed XML DTD/ENTITY declaration in {member}")
+    return io.BytesIO(raw)
+
+
 @dataclass(frozen=True)
 class CellInfo:
     coord: str
@@ -157,21 +168,31 @@ class WorkbookScanResult:
     has_time_axis: bool
 
 
-def _is_period_header_row(row_cells: list[CellInfo]) -> bool:
-    nums: list[float] = []
+def _is_period_header_row(row_idx: int, row_cells: list[CellInfo]) -> bool:
+    """Detect >=6-period calendar year or Excel serial date headers (static or formula-computed)."""
+    if row_idx > 35:
+        return False
+    years: list[float] = []
+    serials: list[float] = []
     for c in row_cells:
-        if c.formula is None and c.value is not None and c.ctype != "e":
+        if c.value is not None and c.ctype not in ("e", "s", "b"):
             try:
                 v = float(c.value)
-                # Calendar years 1970..2100 or Excel serial dates 25569..73050 (1970..2100)
-                if 1970 <= v <= 2100 or 25569 <= v <= 73050:
-                    nums.append(v)
+                if 1970 <= v <= 2100 and abs(v - round(v)) < 1e-6:
+                    years.append(v)
+                elif 25569 <= v <= 73050:
+                    serials.append(v)
             except ValueError:
                 continue
-    if len(nums) < 6:
-        return False
-    monotonic_steps = sum(1 for i in range(len(nums) - 1) if nums[i + 1] >= nums[i])
-    return monotonic_steps >= int(0.85 * (len(nums) - 1)) and nums[-1] > nums[0]
+
+    for seq, max_step in ((years, 10.0), (serials, 400.0)):
+        if len(seq) >= 6:
+            valid_steps = sum(
+                1 for i in range(len(seq) - 1) if 0.0 <= (seq[i + 1] - seq[i]) <= max_step
+            )
+            if valid_steps >= int(0.85 * (len(seq) - 1)) and seq[-1] > seq[0]:
+                return True
+    return False
 
 
 def scan_workbook_openxml(xlsx_path: Path, values_only: bool = False) -> WorkbookScanResult:
@@ -197,10 +218,12 @@ def scan_workbook_openxml(xlsx_path: Path, values_only: bool = False) -> Workboo
 
         sst: list[str] = []
         if "xl/sharedStrings.xml" in namelist:
-            with zf.open("xl/sharedStrings.xml") as sfp:
-                for _, elem in SafeET.iterparse(sfp, events=("end",)):
-                    if elem.tag == f"{{{NS_MAIN}}}si":
-                        sst.append("".join(t.text or "" for t in elem.iter(f"{{{NS_MAIN}}}t")))
+            with _safe_xml_stream(zf, "xl/sharedStrings.xml") as sfp:
+                si_tag = f"{{{NS_MAIN}}}si"
+                t_tag = f"{{{NS_MAIN}}}t"
+                for _, elem in CElementTree.iterparse(sfp, events=("end",)):
+                    if elem.tag == si_tag:
+                        sst.append("".join(t.text or "" for t in elem.iter(t_tag)))
                         elem.clear()
 
         calc_el = wb_root.find(f"{{{NS_MAIN}}}calcPr")
@@ -279,8 +302,8 @@ def scan_workbook_openxml(xlsx_path: Path, values_only: bool = False) -> Workboo
             by_row: dict[int, list[CellInfo]] = defaultdict(list)
             by_col: dict[int, list[CellInfo]] = defaultdict(list)
 
-            with zf.open(s_target) as wfp:
-                for _, elem in SafeET.iterparse(wfp, events=("end",)):
+            with _safe_xml_stream(zf, s_target) as wfp:
+                for _, elem in CElementTree.iterparse(wfp, events=("end",)):
                     if elem.tag != c_tag:
                         continue
                     sh_c_tags += 1
@@ -323,8 +346,11 @@ def scan_workbook_openxml(xlsx_path: Path, values_only: bool = False) -> Workboo
                                 shared_r1c1[si] = r1c1_sig
                             elif si in shared_masters:
                                 mr, mc, mf = shared_masters[si]
-                                formula_str = shift_formula_a1(mf, r_idx - mr, c_idx - mc)
                                 r1c1_sig = shared_r1c1[si]
+                                if "[" in mf or ctype == "e" or "#REF!" in mf:
+                                    formula_str = shift_formula_a1(mf, r_idx - mr, c_idx - mc)
+                                else:
+                                    formula_str = mf
                             else:
                                 formula_str = raw_f
                                 r1c1_sig = normalize_formula_to_r1c1(formula_str, r_idx, c_idx)
@@ -373,7 +399,7 @@ def scan_workbook_openxml(xlsx_path: Path, values_only: bool = False) -> Workboo
 
             sh_has_time = (
                 not values_only
-                and any(_is_period_header_row(rcells) for rcells in by_row.values())
+                and any(_is_period_header_row(r_i, rcells) for r_i, rcells in by_row.items())
                 and sh_f >= 6
             )
             if sh_has_time:

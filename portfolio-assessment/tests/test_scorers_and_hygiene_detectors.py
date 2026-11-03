@@ -33,9 +33,9 @@ def test_extractability_penalizes_xll_sjpoint_and_marks_absent_vba_na(tmp_path: 
     assert stats["xll_udf_cells"] == 2
     assert stats["opaque_cells"] == 1
     assert by_code["E2"].applicable is False  # No VBA -> N/A
-    assert by_code["E4"].applicable is False  # No ext links -> N/A
-    # E1 credits: 2*0.5 + 1*0.0 + 3*1.0 = 4.0 / 6 = 66.67%
-    assert 66.0 <= (by_code["E1"].score or 0.0) <= 67.0
+    assert by_code["E4"].applicable is True  # _xll.sjpoint is an external desktop connector!
+    # E1 credits: 2*0.25 + 1*0.0 + 3*1.0 = 3.5 / 6 = 58.33%
+    assert 58.0 <= (by_code["E1"].score or 0.0) <= 59.0
 
 
 def test_hygiene_excludes_intentional_na_and_detects_hardcoded_drag_islands_and_fill_glitch(
