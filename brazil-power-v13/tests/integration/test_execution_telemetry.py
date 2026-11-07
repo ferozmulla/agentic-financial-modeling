@@ -236,6 +236,9 @@ def test_telemetry_web_ui_and_demo_seed_endpoints() -> None:
         assert "vw_audit_dashboard_lean" in gov_html.text
         assert "4-Ws Metadata Audit Trail</h2>" in gov_html.text
         assert "BRAZIL_TT_V13_RJEB GOVERNANCE AI ASSISTANT" in gov_html.text
+        assert "Open in Looker ↗" in gov_html.text
+        assert "Refresh BQ" not in gov_html.text
+        assert "https://56571629-c48f-487a-a65b-9e55b5de76df.looker.app/dashboards/4" in gov_html.text
 
         gov_css = client.get("/governance/styles.css")
         assert gov_css.status_code == 200
@@ -248,6 +251,7 @@ def test_telemetry_web_ui_and_demo_seed_endpoints() -> None:
         assert "by_tab" in gov_payload["charts"]
         assert "by_change_type" in gov_payload["charts"]
         assert "by_workbook_drift" in gov_payload["charts"]
+        assert gov_payload["looker_url"] == "https://56571629-c48f-487a-a65b-9e55b5de76df.looker.app/dashboards/4"
         assert "lookerstudio.google.com" in gov_payload["looker_studio_url"]
         assert all(ev["change_type_code"] != "INITIAL_BASELINE_INGESTED" for ev in gov_payload["events"])
 

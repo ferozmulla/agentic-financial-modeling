@@ -20,6 +20,7 @@ _CACHE_LOCK = threading.Lock()
 _CACHED_BQ_ROWS: list[dict[str, Any]] = []
 _LAST_BQ_FETCH_MONO: float = 0.0
 _CACHE_TTL_SEC: float = 5.0
+LOOKER_DASHBOARD_URL: str = "https://56571629-c48f-487a-a65b-9e55b5de76df.looker.app/dashboards/4"
 
 
 class GovernanceChatRequest(BaseModel):
@@ -452,6 +453,7 @@ async def get_governance_dashboard_data(
     return {
         "model_label": "Model: Brazil_TT_v13_RJEB",
         "bq_view": f"{project_id}.{dataset_id}.vw_audit_dashboard_lean",
+        "looker_url": LOOKER_DASHBOARD_URL,
         "looker_studio_url": _build_looker_studio_linking_url(project_id, dataset_id),
         "filters": {
             "timeframe": timeframe,
@@ -518,7 +520,7 @@ GOVERNANCE_HTML = """<!DOCTYPE html>
         <button type="button" class="mode-btn" data-timeframe="all">All Time</button>
       </nav>
 
-      <!-- Dimension Dropdowns & Looker Studio Action Pill -->
+      <!-- Dimension Dropdowns & Looker Action Pill -->
       <div class="pill-card status-pill">
         <div class="filter-select-wrap">
           <label for="selWorkbook" class="filter-mini-label">Sheet Copy</label>
@@ -532,11 +534,8 @@ GOVERNANCE_HTML = """<!DOCTYPE html>
             <option value="all">All Analysts</option>
           </select>
         </div>
-        <button type="button" class="action-pill-btn secondary-action" id="btnRefreshBq" title="Reload from BigQuery">
-          Refresh BQ
-        </button>
-        <a id="lnkLookerStudio" href="https://lookerstudio.google.com/" target="_blank" rel="noopener noreferrer" class="action-pill-btn primary-action">
-          Open in Looker Studio ↗
+        <a id="lnkLookerStudio" href="https://56571629-c48f-487a-a65b-9e55b5de76df.looker.app/dashboards/4" target="_blank" rel="noopener noreferrer" class="action-pill-btn primary-action">
+          Open in Looker ↗
         </a>
       </div>
     </header>
@@ -1932,8 +1931,8 @@ GOVERNANCE_JS = """
   function renderDashboard(data) {
     if (!data) return;
     cachedPayload = data;
-    if (lnkLookerStudio && data.looker_studio_url) {
-      lnkLookerStudio.href = data.looker_studio_url;
+    if (lnkLookerStudio && data.looker_url) {
+      lnkLookerStudio.href = data.looker_url;
     }
 
     var k = data.kpis || {};
@@ -2034,13 +2033,6 @@ GOVERNANCE_JS = """
   if (txtSearchTable) {
     txtSearchTable.addEventListener("input", function () {
       if (cachedPayload) renderTable(cachedPayload.events || []);
-    });
-  }
-
-  var btnRefreshBq = document.getElementById("btnRefreshBq");
-  if (btnRefreshBq) {
-    btnRefreshBq.addEventListener("click", function () {
-      loadDashboard(true, true);
     });
   }
 

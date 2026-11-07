@@ -1,7 +1,7 @@
 connection: "comm_model_mod_bigquery"
 
-include: "/looker/*.view.lkml"
-include: "/looker/*.dashboard.lookml"
+include: "*.view.lkml"
+include: "*.dashboard.lookml"
 
 datagroup: governance_audit_realtime_dg {
   sql_trigger: SELECT MAX(event_time_utc) FROM `comm-model-mod.sheets_commodity_mod_governance.vw_audit_dashboard_lean` ;;
