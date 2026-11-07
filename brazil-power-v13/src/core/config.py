@@ -37,6 +37,10 @@ class Settings(BaseSettings):
         default=PROJECT_ROOT / "seed" / "2023-11-27-Brazil_TT_v13_RJEB.xlsm",
         validation_alias="SEED_WORKBOOK_PATH",
     )
+    golden_spreadsheet_id: str = Field(
+        default="1apbos5xVpK4yBLiRFxQqAEyPVNkkYQ2ZvgAASibYYJI",
+        validation_alias="GOLDEN_SPREADSHEET_ID",
+    )
     baseline_fixture_path: Path = Field(
         default=PROJECT_ROOT / "data" / "fixtures" / "brazil_tt_v13_baseline.json",
         validation_alias="BASELINE_FIXTURE_PATH",

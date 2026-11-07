@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from src.api.routes import governance, health, ingest, solve
+from src.api.routes import governance, governance_dashboard, health, ingest, solve, telemetry
 from src.core.logging import get_logger
 from src.core.security import SecureHeadersMiddleware
 from src.db.bigquery_sink import BigQueryAnalyticalSink
@@ -51,6 +51,8 @@ def create_app(
     app.include_router(solve.router)
     app.include_router(ingest.router)
     app.include_router(governance.router)
+    app.include_router(governance_dashboard.router)
+    app.include_router(telemetry.router)
 
     return app
 

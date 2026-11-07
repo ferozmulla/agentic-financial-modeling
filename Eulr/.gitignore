@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.env
+data/*.db
+data/*.sqlite
+data/*.npz
+data/overrides/
+references/*.xlsx
+docs/references/*.xlsx
+.DS_Store
+infra/terraform/.terraform/
+infra/terraform/*.tfstate*
+infra/terraform/.terraform.lock.hcl

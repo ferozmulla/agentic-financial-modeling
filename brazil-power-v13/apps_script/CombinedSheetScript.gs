@@ -346,6 +346,9 @@ function setupBigQueryConnectedSheets() {
 function refreshBqmlForecasts() {
   SpreadsheetApp.enableBigQueryExecution();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var activeSheet = ss.getActiveSheet();
+  var activeTabName = activeSheet ? activeSheet.getName() : "LT_Capex_BQML / LT_Fuel_BQML / LT_CF_BQML";
+  var t0 = new Date().getTime();
   ss.toast("Refreshing BigQuery ML (ARIMA_PLUS) forecasts into LT_Capex_BQML, LT_Fuel_BQML & LT_CF_BQML...", "BigQuery ML", 5);
   var extractSheet = ss.getSheetByName("BQML_LT_Forecasts");
   if (!extractSheet || extractSheet.getDataSourceTables().length === 0) {
@@ -356,6 +359,27 @@ function refreshBqmlForecasts() {
   dsTable.forceRefreshData();
   dsTable.waitForCompletion(60);
   SpreadsheetApp.flush();
+  var durationMs = Math.max(new Date().getTime() - t0, 50);
+  try {
+    var userEmail = Session.getActiveUser().getEmail() || "admin@ferozmulla.altostrat.com";
+    UrlFetchApp.fetch(getGatewayBaseUrl_() + "/v1/telemetry/bqml-refresh", {
+      method: "post",
+      contentType: "application/json",
+      headers: {
+        Authorization: "Bearer " + ScriptApp.getIdentityToken(),
+        "X-Local-Principal": userEmail
+      },
+      payload: JSON.stringify({
+        workbook_id: ss.getName(),
+        spreadsheet_id: ss.getId(),
+        caller_google_user: userEmail,
+        active_tab: activeTabName,
+        view_type: "lt_forecasts",
+        duration_ms: durationMs
+      }),
+      muteHttpExceptions: true
+    });
+  } catch (telemetryErr) {}
   ss.toast("LT_Capex_BQML, LT_Fuel_BQML & LT_CF_BQML updated with latest BigQuery ML forecasts.", "BigQuery ML Refreshed", 5);
 }
 

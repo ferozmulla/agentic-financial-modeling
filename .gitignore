@@ -49,8 +49,8 @@ data/*.db-wal
 other models/*.xls*
 
 # Detailed cell-formula & corporate URL audit dumps (keep aggregate scorecards tracked)
-portfolio-assessment/reports/portfolio_cell_defects.csv
-portfolio-assessment/reports/portfolio_external_links_audit.csv
+portfolio-assessment/**/portfolio_cell_defects.csv
+portfolio-assessment/**/portfolio_external_links_audit.csv
 
 # macOS metadata
 .DS_Store
