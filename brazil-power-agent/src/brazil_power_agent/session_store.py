@@ -442,15 +442,26 @@ class BrazilPowerSessionManager:
         for cu in response.cell_updates:
             self._upsert_cell_range_update(cu.sheet, cu.range, cu.values)
 
+    @staticmethod
+    def _normalize_parity_mode(parity_mode: str | bool) -> str:
+        if isinstance(parity_mode, bool):
+            return "strict_legacy_vba" if parity_mode else "continuous_exact"
+        if str(parity_mode).strip().lower() in ("true", "1", "strict_legacy_vba", "legacy"):
+            return "strict_legacy_vba"
+        if str(parity_mode).strip().lower() in ("false", "0", "continuous_exact", "continuous"):
+            return "continuous_exact"
+        return "strict_legacy_vba"
+
     def run_tornado(
         self,
         technology_code: str = "_06_CF",
-        parity_mode: str = "strict_legacy_vba",
+        parity_mode: str | bool = "strict_legacy_vba",
     ) -> dict[str, Any]:
         """Execute calcule_tir<N> Tornado IRR sensitivity and build Excel table + ECharts spec."""
+        norm_parity = self._normalize_parity_mode(parity_mode)
         norm_code = normalize_technology_code(technology_code)
         if norm_code == "ALL":
-            all_results = [self.run_tornado(tc, parity_mode=parity_mode) for tc in TECH_SPECS]
+            all_results = [self.run_tornado(tc, parity_mode=norm_parity) for tc in TECH_SPECS]
             combined_md = "\n\n---\n\n".join(r["inline_excel_table_md"] for r in all_results)
             return {
                 "technology_code": "ALL",
@@ -469,7 +480,7 @@ class BrazilPowerSessionManager:
             macro_name=macro_name,
             general_overrides=gen_overrides,
             sheet_inputs=sheet_inputs,
-            parity_mode=parity_mode,  # type: ignore[arg-type]
+            parity_mode=norm_parity,  # type: ignore[arg-type]
         )
         resp = MacroExecutionRegistry.execute(req, base_context=self._base_ctx)
         self._record_macro_outputs(resp)
@@ -546,15 +557,16 @@ class BrazilPowerSessionManager:
 
     def run_lcoe_horizon(
         self,
-        parity_mode: str = "strict_legacy_vba",
+        parity_mode: str | bool = "strict_legacy_vba",
     ) -> dict[str, Any]:
         """Execute lcoe_exec (184 solves across 23 years x 8 technologies on Output_3!B9:J31)."""
+        norm_parity = self._normalize_parity_mode(parity_mode)
         gen_overrides, sheet_inputs, _ = self._build_general_overrides_and_sheet_inputs()
         req = SolveMacroRequest(
             macro_name="lcoe_exec",
             general_overrides=gen_overrides,
             sheet_inputs=sheet_inputs,
-            parity_mode=parity_mode,  # type: ignore[arg-type]
+            parity_mode=norm_parity,  # type: ignore[arg-type]
         )
         resp = MacroExecutionRegistry.execute(req, base_context=self._base_ctx)
         self._record_macro_outputs(resp)
@@ -860,9 +872,10 @@ class BrazilPowerSessionManager:
     def run_cvu_sweep(
         self,
         technology_code: str = "_01_CF",
-        parity_mode: str = "strict_legacy_vba",
+        parity_mode: str | bool = "strict_legacy_vba",
     ) -> dict[str, Any]:
         """Execute calculo_cvu<N> 1D Fuel/CVU/Capex sweep + Thermal Physical Guarantee (GF & ICB)."""
+        norm_parity = self._normalize_parity_mode(parity_mode)
         norm_code = normalize_technology_code(technology_code)
         if norm_code == "ALL":
             norm_code = "_01_CF"
@@ -875,7 +888,7 @@ class BrazilPowerSessionManager:
             macro_name=macro_name,
             general_overrides=gen_overrides,
             sheet_inputs=sheet_inputs,
-            parity_mode=parity_mode,  # type: ignore[arg-type]
+            parity_mode=norm_parity,  # type: ignore[arg-type]
         )
         resp = MacroExecutionRegistry.execute(req, base_context=self._base_ctx)
         self._record_macro_outputs(resp)
