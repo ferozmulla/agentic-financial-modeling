@@ -172,24 +172,24 @@ GENERAL_ROW_CATALOG: list[dict[str, Any]] = [
     {"row": 8, "label": "Capacity (MW or kW where indicated)", "unit": "MW / kW", "fmt": "num1"},
     {"row": 9, "label": "Net capacity (MW)", "unit": "MW", "fmt": "num2"},
     {"row": 10, "label": "General losses (%)", "unit": "%", "fmt": "pct1"},
-    {"row": 11, "label": "Base capital cost (R$/kW)", "unit": "R$/kW", "fmt": "num2"},
-    {"row": 12, "label": "Lower capital cost (R$/kW)", "unit": "R$/kW", "fmt": "num2"},
-    {"row": 13, "label": "Upper capital cost (R$/kW)", "unit": "R$/kW", "fmt": "num2"},
+    {"row": 11, "label": "Base capital cost (BRL/kW)", "unit": "BRL/kW", "fmt": "num2"},
+    {"row": 12, "label": "Lower capital cost (BRL/kW)", "unit": "BRL/kW", "fmt": "num2"},
+    {"row": 13, "label": "Upper capital cost (BRL/kW)", "unit": "BRL/kW", "fmt": "num2"},
     {"row": 14, "label": "Construction lead time (yrs)", "unit": "yrs", "fmt": "num1"},
     {"row": 15, "label": "Plant economic life (yrs)", "unit": "yrs", "fmt": "num1"},
     {"row": 16, "label": "Capacity factor", "unit": "ratio / %", "fmt": "pct1"},
     {"row": 17, "label": "Heat rate", "unit": "Btu/kWh", "fmt": "num0"},
     {"row": 18, "label": "Availability (MWmed)", "unit": "MWmed", "fmt": "num2"},
     {"row": 19, "label": "Fuel cost unit", "unit": "unit", "fmt": "text"},
-    {"row": 20, "label": "Fuel cost", "unit": "US$/MMBtu or R$/MMBtu", "fmt": "num2"},
-    {"row": 23, "label": "Fixed O&M costs (R$//kW-yr)", "unit": "R$/kW-yr", "fmt": "num2"},
-    {"row": 24, "label": "Variable O&M costs (R$/MWh)", "unit": "R$/MWh", "fmt": "num2"},
+    {"row": 20, "label": "Fuel cost", "unit": "USD/MMBtu or BRL/MMBtu", "fmt": "num2"},
+    {"row": 23, "label": "Fixed O&M costs (BRL/kW-yr)", "unit": "BRL/kW-yr", "fmt": "num2"},
+    {"row": 24, "label": "Variable O&M costs (BRL/MWh)", "unit": "BRL/MWh", "fmt": "num2"},
     {"row": 25, "label": "Operation insurance (% yr)", "unit": "%/yr", "fmt": "pct2"},
     {"row": 26, "label": "Warranty insurance (% yr)", "unit": "%/yr", "fmt": "pct2"},
-    {"row": 27, "label": "Transmission cost (R$/kWh.month)", "unit": "R$/kW.mo", "fmt": "num2"},
+    {"row": 27, "label": "Transmission cost (BRL/kWh.month)", "unit": "BRL/kW.mo", "fmt": "num2"},
     {"row": 28, "label": "Administration cost (%)", "unit": "%", "fmt": "pct2"},
     {"row": 29, "label": "Rental", "unit": "%", "fmt": "pct2"},
-    {"row": 30, "label": "Water (US$/MWh)", "unit": "US$/MWh", "fmt": "num2"},
+    {"row": 30, "label": "Water (USD/MWh)", "unit": "USD/MWh", "fmt": "num2"},
     {"row": 32, "label": "Equity", "unit": "share", "fmt": "pct1"},
     {"row": 33, "label": "Debt", "unit": "share", "fmt": "pct1"},
     {"row": 34, "label": "Interest Rate", "unit": "real WACC %", "fmt": "pct2"},
@@ -197,7 +197,7 @@ GENERAL_ROW_CATALOG: list[dict[str, Any]] = [
     {"row": 36, "label": "IRR", "unit": "target %", "fmt": "pct2"},
     {"row": 38, "label": "Income tax", "unit": "%", "fmt": "pct1"},
     {"row": 39, "label": "Projected inflation", "unit": "%", "fmt": "pct1"},
-    {"row": 40, "label": "Exchange rate (R$/US$)", "unit": "R$/US$", "fmt": "num2"},
+    {"row": 40, "label": "Exchange rate (BRL/USD)", "unit": "BRL/USD", "fmt": "num2"},
 ]
 
 GENERAL_ROW_BY_NUM: dict[int, dict[str, Any]] = {item["row"]: item for item in GENERAL_ROW_CATALOG}
@@ -216,14 +216,30 @@ OUTPUT3_COLUMNS: list[dict[str, Any]] = [
 ]
 
 
+def normalize_markdown_table(md_text: str) -> str:
+    """Ensure Markdown tables have zero LaTeX '$' collisions and preserve newline breaks between rows."""
+    if not md_text:
+        return ""
+    cleaned = md_text.replace("US$", "USD").replace("R$", "BRL")
+    out_lines: list[str] = []
+    for raw_line in cleaned.splitlines():
+        if "| ---" in raw_line and "| |" in raw_line:
+            expanded = raw_line.replace("| |", "|\n|").replace("||", "|\n|")
+            for sub in expanded.splitlines():
+                out_lines.append(sub)
+        else:
+            out_lines.append(raw_line)
+    return "\n".join(out_lines) + ("\n" if cleaned.endswith("\n") else "")
+
+
 def format_excel_value(val: Any, fmt: str = "num2") -> str:
     """Format a spreadsheet cell value using exact Excel display conventions."""
     if val is None or val == "":
         return "-"
     if isinstance(val, str):
-        return val
+        return val.replace("US$", "USD").replace("R$", "BRL")
     if not isinstance(val, (int, float)):
-        return str(val)
+        return str(val).replace("US$", "USD").replace("R$", "BRL")
     fval = float(val)
     if fmt == "pct1":
         return f"{fval * 100.0:.1f}% ({fval:.3f})"
@@ -349,7 +365,7 @@ class ExcelLayoutRenderer:
                 + " |"
             )
         full_md = "\n".join(full_lines)
-        return inline_md, full_md
+        return normalize_markdown_table(inline_md), normalize_markdown_table(full_md)
 
     @staticmethod
     def render_assumptions_diff_table(changes: list[dict[str, Any]]) -> str:
@@ -375,7 +391,7 @@ class ExcelLayoutRenderer:
                 f"| **{ch.get('parameter', ch['cell_coord'])}** | {ch.get('unit', '-')} "
                 f"| {b_str} | **{c_str}** | `{d_str}` |"
             )
-        return "\n".join(lines)
+        return normalize_markdown_table("\n".join(lines))
 
     @staticmethod
     def render_tornado_table(
@@ -386,7 +402,7 @@ class ExcelLayoutRenderer:
     ) -> str:
         """Render exact replica of _0N_CF!A4:H12 Tornado IRR Sensitivity table and Output_1 summary."""
         spec = TECH_SPECS.get(technology_code, TECH_SPECS["_06_CF"])
-        unit_label = "Fixed Revenue (R$/yr, `C16`)" if spec["is_thermal"] else "Solved LCOE Tariff (R$/MWh, `B16`)"
+        unit_label = "Fixed Revenue (BRL/yr, `C16`)" if spec["is_thermal"] else "Solved LCOE Tariff (BRL/MWh, `B16`)"
         lines = [
             f"### Excel Tab Replica: `{technology_code}!A4:H12` & `Output_1` — Tornado IRR Sensitivity (`{spec['display_name']}`)",
             f"- **Target Worksheet**: `{technology_code}` (`Fuel: {spec['fuel']}`, `Technology: {spec['tech']}`)",
@@ -403,7 +419,7 @@ class ExcelLayoutRenderer:
                 f"| **{r['out_low']:,.2f}** (`E{row_num}`) | {r['out_base']:,.2f} (`F{row_num}`) | **{r['out_high']:,.2f}** (`G{row_num}`) "
                 f"| {r['active_h']:.3f} (`H{row_num}`) | `{r['spread']:,.2f}` |"
             )
-        return "\n".join(lines)
+        return normalize_markdown_table("\n".join(lines))
 
     @staticmethod
     def build_tornado_echarts(
@@ -525,7 +541,7 @@ class ExcelLayoutRenderer:
                     f"| `{sname}` | `{d['icb_row']}` | `{d['c_coord']}` | `{d['i_coord']}` | **{float(d['icb_value']):,.2f}** |"
                 )
         full_md = "\n".join(full_lines)
-        return inline_md, full_md
+        return normalize_markdown_table(inline_md), normalize_markdown_table(full_md)
 
     @staticmethod
     def build_lcoe_horizon_echarts(output_grid: list[list[Any]]) -> dict[str, Any]:
@@ -573,7 +589,7 @@ class ExcelLayoutRenderer:
     ) -> tuple[str, str]:
         """Render Excel-layout tables for LT Capex!B8:J30, LT Fuel!B8:J30, and LT CF!B8:J30."""
         tab_map = {
-            "CAPEX": ("LT Capex", "R$/kW", "lt_capex_b8_j30"),
+            "CAPEX": ("LT Capex", "BRL/kW", "lt_capex_b8_j30"),
             "FUEL": ("LT Fuel", "Index / Multiplier", "lt_fuel_b8_j30"),
             "CF": ("LT CF", "Capacity Factor Ratio", "lt_cf_b8_j30"),
         }
@@ -633,7 +649,7 @@ class ExcelLayoutRenderer:
                 ]
             )
 
-        return "\n".join(inline_sections), "\n".join(full_sections)
+        return normalize_markdown_table("\n".join(inline_sections)), normalize_markdown_table("\n".join(full_sections))
 
     @staticmethod
     def build_bqml_echarts(
@@ -695,15 +711,15 @@ class ExcelLayoutRenderer:
             "| Excel Coord | Metric / Parameter | Value | Unit |",
             "| :--- | :--- | ---: | :--- |",
             f"| `General!{spec['general_col']}8` | **Installed Capacity** | {summary_metrics['capacity_mw']:,.2f} | MW |",
-            f"| `{technology_code}!C6` | **Specific CAPEX** | {summary_metrics['capex_r_per_kw']:,.2f} | R$/kW |",
+            f"| `{technology_code}!C6` | **Specific CAPEX** | {summary_metrics['capex_r_per_kw']:,.2f} | BRL/kW |",
             f"| `General!{spec['general_col']}14` | **Construction Lead Time** | {summary_metrics['lead_time_yrs']:.1f} | years |",
             f"| `General!{spec['general_col']}15` | **Economic Operational Life** | {summary_metrics['economic_life_yrs']:.1f} | years |",
             f"| `{technology_code}!C7` | **Capacity Factor / Fuel Input** | {summary_metrics['h7_input']:,.3f} | unit |",
             f"| `{technology_code}!C11` | **Real WACC / Financing Rate** | {summary_metrics['wacc_rate'] * 100.0:.2f}% | %/yr |",
-            f"| `{technology_code}!B16` | **Solved Break-Even Tariff (LCOE)** | **{summary_metrics['lcoe_b16']:,.2f}** | R$/MWh |",
+            f"| `{technology_code}!B16` | **Solved Break-Even Tariff (LCOE)** | **{summary_metrics['lcoe_b16']:,.2f}** | BRL/MWh |",
             f"| `{technology_code}!B17` | **Annual Net Generation** | {summary_metrics['generation_b17']:,.1f} | MWh/yr |",
             f"| `{technology_code}!B18` | **Shareholder / Project IRR (`TIR`)** | **{summary_metrics['irr_b18'] * 100.0:.2f}%** | % |",
-            f"| `{technology_code}!NPV` | **Net Present Value @ Real WACC** | **{summary_metrics['npv_at_wacc']:,.2f}** | R$ |",
+            f"| `{technology_code}!NPV` | **Net Present Value @ Real WACC** | **{summary_metrics['npv_at_wacc']:,.2f}** | BRL |",
             f"| `{technology_code}!Payback` | **Discounted Payback Period** | {summary_metrics['payback_yrs']:.1f} | years |",
             "",
             f"#### Milestone Years Preview (`{technology_code}!Row 19..63`, `{years[0]}–{years[-1]}`)",
@@ -725,7 +741,7 @@ class ExcelLayoutRenderer:
         # Full 30-year horizontal table for Side-Pane Artifact
         full_lines = [
             f"# Complete 30-Year DCF Cash Flow Schedule: `{technology_code}` (`{spec['display_name']}`, `{years[0]}–{years[-1]}`)",
-            f"- **Solved LCOE (`{technology_code}!B16`)**: `{summary_metrics['lcoe_b16']:,.2f} R$/MWh` | **IRR (`{technology_code}!B18`)**: `{summary_metrics['irr_b18'] * 100.0:.2f}%` | **NPV @ WACC**: `R$ {summary_metrics['npv_at_wacc']:,.2f}`",
+            f"- **Solved LCOE (`{technology_code}!B16`)**: `{summary_metrics['lcoe_b16']:,.2f} BRL/MWh` | **IRR (`{technology_code}!B18`)**: `{summary_metrics['irr_b18'] * 100.0:.2f}%` | **NPV @ WACC**: `BRL {summary_metrics['npv_at_wacc']:,.2f}`",
             "",
             "| Row | Line Item (`" + technology_code + "!Col A`) | "
             + " | ".join([f"{years[i]} (`Col {col_letters[i]}`)" for i in range(len(years))])
@@ -741,7 +757,7 @@ class ExcelLayoutRenderer:
                 f"| `{r_num}` | **{label}** (`{technology_code}!A{r_num}`) | " + " | ".join(cell_strs) + " |"
             )
         full_md = "\n".join(full_lines)
-        return inline_md, full_md
+        return normalize_markdown_table(inline_md), normalize_markdown_table(full_md)
 
     @staticmethod
     def build_dcf_echarts(
@@ -807,7 +823,7 @@ class ExcelLayoutRenderer:
             f"### Excel Tab Replica: `{technology_code}!B70:I79` & `CVU_GF` — 1D CVU & Physical Guarantee Sweep (`{spec['display_name']}`)",
             f"- **Macro Executed**: `calculo_cvu{spec['index']}` (`Mutated Observer Cell: {technology_code}!{mutated_cell}`)",
             "",
-            f"| Row | Sweep Input (`{technology_code}!Col B`) | Solved Tariff (`{technology_code}!Col C`, R$/MWh) | Fixed Revenue (`Col D`, R$/yr) | Variable Unit Cost `CVU` (`Col E`, R$/MWh) | Physical Guarantee `GF` (`Col F`, MWmed) | Dispatch Factor `fator_k` (`Col H`) | Cost-Benefit Index `ICB` (`Col I`, R$/MWh) |",
+            f"| Row | Sweep Input (`{technology_code}!Col B`) | Solved Tariff (`{technology_code}!Col C`, BRL/MWh) | Fixed Revenue (`Col D`, BRL/yr) | Variable Unit Cost `CVU` (`Col E`, BRL/MWh) | Physical Guarantee `GF` (`Col F`, MWmed) | Dispatch Factor `fator_k` (`Col H`) | Cost-Benefit Index `ICB` (`Col I`, BRL/MWh) |",
             "| :---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
         ]
         for r in sweep_rows:
@@ -821,7 +837,7 @@ class ExcelLayoutRenderer:
                 f"| {r['fator_k']:.4f} (`H{rnum}`) "
                 f"| **{r['icb']:,.2f}** (`I{rnum}`) |"
             )
-        md = "\n".join(lines)
+        md = normalize_markdown_table("\n".join(lines))
         return md, md
 
     @staticmethod

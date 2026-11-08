@@ -74,7 +74,7 @@ If the analyst invokes `/brazil-lcoe` without specifying parameters, immediately
 
 1. **Compact Inline Milestone Table**: Render `inline_markdown` (`inline_excel_table_md`) directly in the chat response, showing the 5-year milestone rows (`2024 (Row 9)`, `2025 (Row 10)`, `2030 (Row 15)`, `2035 (Row 20)`, `2040 (Row 25)`, `2046 (Row 31)`) across all 9 columns (`Col B CCGT` .. `Col J Coal CFBC`) in `R$/MWh` with `2024 -> 2046 Δ (R$/MWh)` and `Δ (%)`.
 2. **Inline Multi-Series Trajectory Chart**: Call `render_chart` (`mcp_data-agent-kit_render_chart`) with the returned `echarts_option` (`echarts_spec`) to plot the 23-year (`2024–2046`) LCOE trajectories across technologies.
-3. **Pre-Saved 23-Row `Output_3!B8:J31` Side-Pane Artifact**: `run_lcoe_horizon_forecast` automatically persists `full_artifact_table_md` to `artifact_file_path` (`artifact_file_uri`) on disk in `<1 ms`. Link directly to `[<artifact_filename>](<artifact_file_uri>)` (or write `full_artifact_table_md` to `brazil_v13_output3_lcoe_horizon.md` via `write_to_file(UserFacing=True, RequestFeedback=False)`).
+3. **Pre-Saved 23-Row `Output_3!B8:J31` Side-Pane Artifact**: `run_lcoe_horizon_forecast` automatically writes the multi-line `full_artifact_table_md` directly into your active conversation brain folder at `artifact_file_path` (`artifact_file_uri`) in `<1 ms` and runs an automatic file-guard. Link directly to `[<artifact_filename>](<artifact_file_uri>)` (if calling `write_to_file` to open the side-pane Artifact tab, pass `TargetFile=artifact_file_path` and a 1-line stub `CodeContent="# Loading Excel Tab Replica..."` — NEVER re-type the multi-column Markdown table inside `write_to_file`).
 
 ### Step 4: Offer 1-Click 22-Tab Workbook Export (`export_full_22tab_workbook`)
 

@@ -335,3 +335,42 @@ def test_compact_llm_payload_and_presaved_artifacts(tmp_path: Path) -> None:
     assert "echarts_spec" in full_structured
     assert len(compact_text) < len(full_text) * 0.55
 
+    # Verify General!B5:N40 artifact table is multi-line, has zero '$' LaTeX collisions, and repairs '| |'
+    from brazil_power_agent.excel_renderer import normalize_markdown_table
+
+    gen_resp = handle_jsonrpc_request(
+        {
+            "jsonrpc": "2.0",
+            "id": 302,
+            "method": "tools/call",
+            "params": {
+                "name": "update_session_assumptions",
+                "arguments": {
+                    "overrides": {
+                        "_01_CF": {"fuel_cost_r_per_mmbtu": 6.50},
+                        "_06_CF": {"lead_time_years": 2.0},
+                    }
+                },
+            },
+        },
+        session_mgr=mgr,
+    )
+    assert gen_resp is not None and not gen_resp["result"].get("isError", False)
+    gen_payload = json.loads(gen_resp["result"]["content"][-1]["text"])
+    gen_artifact_text = Path(gen_payload["artifact_file_path"]).read_text(encoding="utf-8")
+    assert "$" not in gen_artifact_text
+    assert "| |" not in gen_artifact_text
+    table_lines = [ln for ln in gen_artifact_text.splitlines() if ln.startswith("|")]
+    assert len(table_lines) >= 34
+    expected_pipes = table_lines[0].count("|")
+    assert expected_pipes == 16  # 15 columns (Row, Parameter, Unit, Col C..Col N)
+    for tline in table_lines:
+        assert tline.count("|") == expected_pipes
+
+    # Verify collapsed single-line '| |' table is repaired into multi-line rows
+    collapsed = "# Title\n\n| Col A | Col B | | --- | --- | | 1 | R$/kW |"
+    repaired = normalize_markdown_table(collapsed)
+    assert "$" not in repaired
+    assert len([ln for ln in repaired.splitlines() if ln.startswith("|")]) == 3
+
+
