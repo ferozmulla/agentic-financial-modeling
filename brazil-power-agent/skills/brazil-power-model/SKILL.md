@@ -13,18 +13,18 @@ This workflow encapsulates the complete 22-tab `2023-11-27-Brazil_TT_v13_RJEB.xl
 
 ## Reference: 12 Technology Tabs & `General!B5:N40` Column Mapping
 
-| Sheet Code | `General` Col | `Output_3` Col | Display Name | Fuel / Technology | Baseline Capacity (`Row 8`) | Baseline Capex (`Row 11`, R$/kW) | Lead Time (`Row 14`, yrs) | Capacity Factor (`Row 16`) | Fuel Cost (`Row 20`) | Real WACC (`Row 34`) |
+| Sheet Code | `General` Col | `Output_3` Col | Display Name | Fuel / Technology | Baseline Capacity (`Row 8`) | Baseline Capex (`Row 11`, BRL/kW) | Lead Time (`Row 14`, yrs) | Capacity Factor (`Row 16`) | Fuel Cost (`Row 20`) | Real WACC (`Row 34`) |
 | :--- | :---: | :---: | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **`_01_CF`** | `Col C` | `Col B` | **Gas CCGT** | Natural Gas CCGT | `500.0 MW` | `4,250.00` | `3.0` | `85.0%` | `4.50 R$/MMBtu` | `8.00%` |
+| **`_01_CF`** | `Col C` | `Col B` | **Gas CCGT** | Natural Gas CCGT | `500.0 MW` | `4,250.00` | `3.0` | `85.0%` | `4.50 BRL/MMBtu` | `8.00%` |
 | **`_02_CF`** | `Col D` | `Col C` | **Biomass CHP** | Sugarcane Bagasse Boiler | `50.0 MW` | `5,100.00` | `2.0` | `50.0%` | `0.00` | `8.00%` |
 | **`_03_CF`** | `Col E` | `Col D` | **Biomass Retrofit** | Boiler Retrofit | `50.0 MW` | `2,800.00` | `2.0` | `45.0%` | `0.00` | `8.00%` |
 | **`_04_CF`** | `Col F` | `Col F` | **Onshore Wind** | Wind WT Cl. 6 | `30.0 MW` | `5,100.00` | `2.0` | `45.0%` | `0.00` | `8.00%` |
 | **`_05_CF`** | `Col G` | `Col G` | **Utility Solar PV** | Utility-Scale Solar PV | `30.0 MW` | `3,850.00` | `1.0` | `26.0%` | `0.00` | `8.00%` |
 | **`_06_CF`** | `Col H` | `Col I` | **Small Hydro (SHP)** | Run-of-River SHP | `20.0 MW` | `7,500.00` | `3.0` | `55.0%` | `0.00` | `8.00%` |
-| **`_07_CF`** | `Col I` | `Col J` | **Local Coal (CFBC)** | Domestic Coal CFBC | `350.0 MW` | `9,200.00` | `4.0` | `80.0%` | `3.20 US$/MMBtu` | `8.00%` |
-| **`_08_CF`** | `Col J` | `Col H` | **Imported Coal (PC)** | Pulverized Coal PC | `600.0 MW` | `8,400.00` | `4.0` | `80.0%` | `4.10 US$/MMBtu` | `8.00%` |
-| **`_09_CF`** | `Col K` | `Col E` | **Biomass Woodchip** | Dedicated Woodchip Thermal | `50.0 MW` | `5,600.00` | `2.0` | `75.0%` | `18.00 R$/MMBtu` | `8.00%` |
-| **`_10_CF`** | `Col L` | — | **LNG CCGT** | Imported LNG CCGT | `500.0 MW` | `4,400.00` | `3.0` | `85.0%` | `8.50 US$/MMBtu` | `8.00%` |
+| **`_07_CF`** | `Col I` | `Col J` | **Local Coal (CFBC)** | Domestic Coal CFBC | `350.0 MW` | `9,200.00` | `4.0` | `80.0%` | `3.20 USD/MMBtu` | `8.00%` |
+| **`_08_CF`** | `Col J` | `Col H` | **Imported Coal (PC)** | Pulverized Coal PC | `600.0 MW` | `8,400.00` | `4.0` | `80.0%` | `4.10 USD/MMBtu` | `8.00%` |
+| **`_09_CF`** | `Col K` | `Col E` | **Biomass Woodchip** | Dedicated Woodchip Thermal | `50.0 MW` | `5,600.00` | `2.0` | `75.0%` | `18.00 BRL/MMBtu` | `8.00%` |
+| **`_10_CF`** | `Col L` | — | **LNG CCGT** | Imported LNG CCGT | `500.0 MW` | `4,400.00` | `3.0` | `85.0%` | `8.50 USD/MMBtu` | `8.00%` |
 | **`_11_CF`** | `Col M` | — | **DG Solar Residential** | Rooftop PV Residential | `5.0 kW` | `4,800.00` | `1.0` | `18.0%` | `0.00` | `8.00%` |
 | **`_12_CF`** | `Col N` | — | **DG Solar Commercial** | Rooftop PV Commercial | `100.0 kW` | `4,100.00` | `1.0` | `19.5%` | `0.00` | `8.00%` |
 
@@ -34,14 +34,16 @@ This workflow encapsulates the complete 22-tab `2023-11-27-Brazil_TT_v13_RJEB.xl
 
 > [!IMPORTANT]
 > **FAST-START LATENCY RULE (ZERO PRE-CARD TOOL CALLS)**:
-> 1. On Turn 1, when the analyst invokes `/brazil-power-model` without explicit parameters, your **VERY FIRST AND ONLY tool call MUST be `ask_question`** (Card 1 below).
-> 2. Do **NOT** call `get_session_assumptions`, do **NOT** search the filesystem (`find_by_name`, `grep_search`, `list_dir`, `view_file`), and do **NOT** run shell commands before presenting Card 1—all baseline `General!B5:N40` assumptions are already embedded in the Reference Table above.
+> 1. On Turn 1, when the analyst invokes `/brazil-power-model` without explicit parameters, do **NOT** call `get_session_assumptions`, do **NOT** search the filesystem (`find_by_name`, `grep_search`, `list_dir`, `view_file`), and do **NOT** run shell commands (`run_command`) before presenting Card 1—all baseline `General!B5:N40` assumptions are already embedded in the Reference Table above.
+> 2. Instead, in **one single parallel tool-call batch on Turn 1**, call **BOTH**:
+>    - `write_to_file` (`TargetFile="<artifact_dir>/brazil_v13_general_assumptions.md"`, `Overwrite=true`, `ArtifactMetadata={"UserFacing": true, "RequestFeedback": false, "Summary": "Baseline General!B5:N40 12-technology assumptions matrix for Brazil Power Model v13"}`) containing the multi-line baseline `General!B5:N40` Reference Table above (with a real physical newline `\n` after every `| ... |` row) so the right-hand Artifact pane opens immediately alongside Card 1 for decision-making, **AND**
+>    - `ask_question` (Card 1 below) in the exact same turn.
 > 3. Ask the questions **sequentially** (Card 1 first for Technology & Scenario Assumptions, then Card 2 in Step 3 for Analysis Selection).
 
-### Step 1: Card 1 — Technology Group & Scenario Assumption Selection (`ask_question`)
+### Step 1: Card 1 — Upfront `brazil_v13_general_assumptions.md` Artifact + Technology & Scenario Selection (`write_to_file` + `ask_question` in parallel)
 
-1. If the analyst already provided explicit parameter overrides in natural language (e.g., *"Set Gas CCGT fuel cost to 6.50 R$/MMBtu and Small Hydro lead time to 2 years"*), proceed directly to **Step 2** (calling `get_session_assumptions` only when the analyst explicitly asks to inspect the current table).
-2. Otherwise, immediately call `ask_question` as your first action on Turn 1 with zero prior tool calls:
+1. If the analyst already provided explicit parameter overrides in natural language (e.g., *"Set Gas CCGT fuel cost to 6.50 R$/MMBtu and Small Hydro lead time to 2 years"*), proceed directly to **Step 2**.
+2. Otherwise, on Turn 1 with zero prior MCP/shell/filesystem calls, emit `write_to_file` (to open `brazil_v13_general_assumptions.md` in the right-hand Artifact pane using the multi-line Reference Table above, preserving a real newline `\n` after every row) **in parallel with** `ask_question`:
 
 ```json
 {
@@ -73,9 +75,10 @@ This workflow encapsulates the complete 22-tab `2023-11-27-Brazil_TT_v13_RJEB.xl
 
 ### Step 2: Apply Any Assumption Overrides & Immediately Present Card 2
 
-1. If the analyst selected `"Keep current General!B5:N40 baseline assumptions"`, make **zero** MCP tool calls in Step 2 and immediately call `ask_question` in **Step 3** (Card 2).
-2. If the analyst selected or typed any parameter changes (or requested a baseline reset), call `update_session_assumptions` on `brazil-power-mcp` with `overrides` (accepts either semantic dictionaries such as `{"_01_CF": {"fuel_cost_r_per_mmbtu": 6.50}, "_06_CF": {"lead_time_years": 2.0}}` or exact Excel cell coordinates such as `{"General!C20": 6.50, "General!H14": 2.0}`).
-   - Note: `update_session_assumptions` automatically writes the full 12-technology multi-line `General!B5:N40` replica directly to your active conversation brain folder at `artifact_file_path` (`brazil_v13_general_assumptions.md`) in `<1 ms`. Do **not** call `write_to_file` to re-type the 12-technology table before presenting Card 2.
+1. If the analyst selected `"Keep current General!B5:N40 baseline assumptions"`, make **zero** MCP tool calls in Step 2 (`brazil_v13_general_assumptions.md` is already open in the right-hand pane from Step 1) and immediately call `ask_question` in **Step 3** (Card 2).
+2. If the analyst selected or typed any parameter changes (or requested a baseline reset):
+   - Call `update_session_assumptions` on `brazil-power-mcp` with `overrides` (accepts either semantic dictionaries such as `{"_01_CF": {"fuel_cost_r_per_mmbtu": 6.50}, "_06_CF": {"lead_time_years": 2.0}}` or exact Excel cell coordinates such as `{"General!C20": 6.50, "General!H14": 2.0}}`).
+   - Then, in the same turn that you call `ask_question` for **Card 2** (Step 3), call `write_to_file` in parallel on `brazil_v13_general_assumptions.md` (`TargetFile=artifact_file_path`, `Overwrite=true`, `UserFacing=true`) to refresh the right-hand Artifact pane with the staged scenario override diff table and updated 12-technology grid (preserving a real physical newline `\n` after every `| ... |` row).
 
 ### Step 3: Card 2 — Sequential Interactive Analysis Selection Card (`ask_question`)
 
