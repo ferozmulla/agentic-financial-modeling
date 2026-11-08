@@ -30,13 +30,18 @@ This workflow encapsulates the complete 22-tab `2023-11-27-Brazil_TT_v13_RJEB.xl
 
 ---
 
-## 4-Step Interactive Visual Card Workflow
+## 4-Step Sequential Interactive Visual Card Workflow
 
-### Step 1: Technology Group & Scenario Assumption Selection (`ask_question`)
+> [!IMPORTANT]
+> **FAST-START LATENCY RULE (ZERO PRE-CARD TOOL CALLS)**:
+> 1. On Turn 1, when the analyst invokes `/brazil-power-model` without explicit parameters, your **VERY FIRST AND ONLY tool call MUST be `ask_question`** (Card 1 below).
+> 2. Do **NOT** call `get_session_assumptions`, do **NOT** search the filesystem (`find_by_name`, `grep_search`, `list_dir`, `view_file`), and do **NOT** run shell commands before presenting Card 1—all baseline `General!B5:N40` assumptions are already embedded in the Reference Table above.
+> 3. Ask the questions **sequentially** (Card 1 first for Technology & Scenario Assumptions, then Card 2 in Step 3 for Analysis Selection).
 
-1. If the analyst already provided explicit parameter overrides in natural language (e.g., *"Set Gas CCGT fuel cost to 6.50 R$/MMBtu and Small Hydro lead time to 2 years"*), proceed directly to **Step 2**.
-2. Otherwise, first call `get_session_assumptions` on `brazil-power-mcp` to inspect current baseline and staged values from `General!B5:N40`.
-3. Present a native interactive visual card via `ask_question` so the analyst can select technologies and scenario assumption changes without leaving chat:
+### Step 1: Card 1 — Technology Group & Scenario Assumption Selection (`ask_question`)
+
+1. If the analyst already provided explicit parameter overrides in natural language (e.g., *"Set Gas CCGT fuel cost to 6.50 R$/MMBtu and Small Hydro lead time to 2 years"*), proceed directly to **Step 2** (calling `get_session_assumptions` only when the analyst explicitly asks to inspect the current table).
+2. Otherwise, immediately call `ask_question` as your first action on Turn 1 with zero prior tool calls:
 
 ```json
 {
@@ -66,15 +71,15 @@ This workflow encapsulates the complete 22-tab `2023-11-27-Brazil_TT_v13_RJEB.xl
 }
 ```
 
-### Step 2: Update Session Assumptions & Render `General!B5:N40` Diff Preview
+### Step 2: Apply Any Assumption Overrides & Immediately Present Card 2
 
-1. If the analyst selected or typed any parameter changes (or requested a baseline reset), call `update_session_assumptions` on `brazil-power-mcp` with `overrides` (accepts either semantic dictionaries such as `{"_01_CF": {"fuel_cost_r_per_mmbtu": 6.50}, "_06_CF": {"lead_time_years": 2.0}}` or exact Excel cell coordinates such as `{"General!C20": 6.50, "General!H14": 2.0}`).
-2. Render the returned `inline_excel_table_md` directly in the chat response so the analyst sees the exact `General!B5:N40` rows, Excel coordinates, units, and `Baseline -> Current (Δ%)` deltas.
-3. Write `full_artifact_table_md` (the complete 12-column `General!B5:N40` parameter grid covering `_01_CF.._12_CF`) to a side-pane **Artifact** (`brazil_v13_general_assumptions.md`) using `write_to_file` with `ArtifactMetadata(UserFacing=True, RequestFeedback=False, Summary="Complete 12-Technology General!B5:N40 Assumptions Matrix")`.
+1. If the analyst selected `"Keep current General!B5:N40 baseline assumptions"`, make **zero** MCP tool calls in Step 2 and immediately call `ask_question` in **Step 3** (Card 2).
+2. If the analyst selected or typed any parameter changes (or requested a baseline reset), call `update_session_assumptions` on `brazil-power-mcp` with `overrides` (accepts either semantic dictionaries such as `{"_01_CF": {"fuel_cost_r_per_mmbtu": 6.50}, "_06_CF": {"lead_time_years": 2.0}}` or exact Excel cell coordinates such as `{"General!C20": 6.50, "General!H14": 2.0}`).
+   - Note: `update_session_assumptions` automatically saves the full 12-technology `General!B5:N40` replica to `artifact_file_path` (`brazil_v13_general_assumptions.md`) on disk in `<1 ms`, so do **not** spend an extra turn calling `write_to_file` before presenting Card 2.
 
-### Step 3: Interactive Analysis Selection Card (`ask_question`)
+### Step 3: Card 2 — Sequential Interactive Analysis Selection Card (`ask_question`)
 
-If the analyst has not yet specified which quantitative solver macro(s) to execute, present the **Analysis Selection Card** via `ask_question`:
+Immediately present the **Analysis Selection Card** via `ask_question`:
 
 ```json
 {
@@ -94,26 +99,31 @@ If the analyst has not yet specified which quantitative solver macro(s) to execu
 }
 ```
 
-### Step 4: Dual Inline + Side-Pane Artifact Rendering & 22-Tab Workbook Export
+### Step 4: Dual Inline + Pre-Saved Side-Pane Artifact Rendering & 22-Tab Workbook Export
+
+> [!TIP]
+> **FAST EXECUTION & PAYLOAD RULE**:
+> - Call the `brazil-power-mcp` MCP tool directly. *(If `brazil-power-mcp` is not in your active MCP tool list, do NOT search the filesystem; invoke `mcp_server.py --call <tool_name> --args '<json>' --compact-llm` directly in one command.)*
+> - Every `brazil-power-mcp` tool automatically writes the wide `full_artifact_table_md` Excel replica to `artifact_file_path` (`artifact_file_uri`) on disk in `<1 ms`. Link directly to `[<artifact_filename>](<artifact_file_uri>)` (or copy from `artifact_file_path` into `write_to_file` only when creating a side-pane Artifact) instead of regenerating 30-column tables cell-by-cell.
 
 For each selected analysis workflow, execute the corresponding `brazil-power-mcp` tool and adhere strictly to the **Dual Inline + Artifact Rendering Standard**:
 
 1. **Tornado IRR Sensitivity** (`run_tornado_sensitivity`):
-   - Render `inline_excel_table_md` (`_0N_CF!A4:H12` 21-point IRR sensitivity grid + `Output_1` summary) inline in chat.
-   - Call `render_chart` (`mcp_data-agent-kit_render_chart`) with `echarts_spec` to render the horizontal Tornado bar chart inline.
-   - Write `full_artifact_table_md` to a side-pane **Artifact** (`brazil_v13_tornado_output1.md`).
+   - Render `inline_markdown` (`inline_excel_table_md`: `_0N_CF!A4:H12` 21-point IRR sensitivity grid + `Output_1` summary) inline in chat.
+   - Call `render_chart` (`mcp_data-agent-kit_render_chart`) with `echarts_option` (`echarts_spec`) to render the horizontal Tornado bar chart inline.
+   - Link to the pre-saved side-pane **Artifact** at `artifact_file_uri` (or write `full_artifact_table_md` via `write_to_file` to `brazil_v13_tornado_output1.md`).
 2. **23-Year Multi-Tech LCOE Forecast** (`run_lcoe_horizon_forecast`):
-   - Render `inline_excel_table_md` (compact milestone table: `2024, 2025, 2030, 2035, 2040, 2046` across `Output_3!B8:J31`) inline in chat.
-   - Call `render_chart` with `echarts_spec` to render the 23-year multi-technology LCOE trajectory line chart inline.
-   - Write `full_artifact_table_md` (complete 23-row × 9-column `Output_3!B8:J31` replica covering `2024–2046`, including Legacy Quirk 7 blank `Col D` in `strict_legacy_vba` mode) to a side-pane **Artifact** (`brazil_v13_output3_lcoe_2024_2046.md`).
+   - Render `inline_markdown` (`inline_excel_table_md`: compact milestone table `2024, 2025, 2030, 2035, 2040, 2046` across `Output_3!B8:J31`) inline in chat.
+   - Call `render_chart` with `echarts_option` (`echarts_spec`) to render the 23-year multi-technology LCOE trajectory line chart inline.
+   - Link to the pre-saved 23-row × 9-column `Output_3!B8:J31` **Artifact** at `artifact_file_uri` (or write `full_artifact_table_md` via `write_to_file` to `brazil_v13_output3_lcoe_2024_2046.md`, including Legacy Quirk 7 blank `Col D` in `strict_legacy_vba` mode).
 3. **BigQuery ML `ARIMA_PLUS` Time-Series Refresh** (`run_bqml_timeseries_refresh`):
-   - Render `inline_excel_table_md` (milestone normalized index summary across `LT Capex!B8:J30`, `LT Fuel!B8:J30`, `LT CF!B8:J30`) inline in chat.
-   - Call `render_chart` with `echarts_spec` to render the 23-year BQML trajectory chart inline.
-   - Write `full_artifact_table_md` (full 23-row `LT Capex`, `LT Fuel`, and `LT CF` Excel replicas) to a side-pane **Artifact** (`brazil_v13_bqml_lt_curves.md`).
+   - Render `inline_markdown` (`inline_excel_table_md`: milestone normalized index summary across `LT Capex!B8:J30`, `LT Fuel!B8:J30`, `LT CF!B8:J30`) inline in chat.
+   - Call `render_chart` with `echarts_option` (`echarts_spec`) to render the 23-year BQML trajectory chart inline.
+   - Link to the pre-saved 23-row `LT Capex`, `LT Fuel`, and `LT CF` **Artifact** at `artifact_file_uri` (or write `full_artifact_table_md` via `write_to_file` to `brazil_v13_bqml_lt_curves.md`).
 4. **30-Year Project & Shareholder DCF + Thermal CVU Sweep** (`run_dcf_cashflow_analysis`):
-   - Render `inline_excel_table_md` (executive valuation header `_0N_CF!B2:H14` + milestone years `2024, 2025, 2026, 2027, 2028, 2030, 2035, 2040, 2045, 2050, 2053` + `CVU_GF` 10-point table when `include_cvu_gf_sweep=True`) inline in chat.
-   - Call `render_chart` with `echarts_spec` (and `cvu_sweep_echarts_option` if a CVU sweep was run) to render the 30-year Free Cash Flow & Cumulative NPV stacked bar/line visual inline.
-   - Write `full_artifact_table_md` (complete 30-column `Col K..Col AN` × Rows `33–101` horizontal `_0N_CF` DCF replica) to a side-pane **Artifact** (`brazil_v13_dcf_30yr_schedule.md`).
+   - Render `inline_markdown` (`inline_excel_table_md`: executive valuation header `_0N_CF!B2:H14` + milestone years `2024, 2025, 2026, 2027, 2028, 2030, 2035, 2040, 2045, 2050, 2053` + `CVU_GF` 10-point table when `include_cvu_gf_sweep=True`) inline in chat.
+   - Call `render_chart` with `echarts_option` (`echarts_spec`, and `cvu_sweep_echarts_option` if a CVU sweep was run) to render the 30-year Free Cash Flow & Cumulative NPV stacked bar/line visual inline.
+   - Link to the pre-saved 30-column `Col K..Col AN` × Rows `33–101` horizontal `_0N_CF` DCF **Artifact** at `artifact_file_uri` (or write `full_artifact_table_md` via `write_to_file` to `brazil_v13_dcf_30yr_schedule.md`).
 5. **1-Click 22-Tab `.xlsx` or Google Sheets Deliverable Export** (`export_full_22tab_workbook`):
    - At the conclusion of the analysis turn (or whenever requested), offer or invoke `export_full_22tab_workbook(export_format="xlsx" | "google_sheets" | "both")`.
    - Confirm that all 22 original worksheets (`Version Control`, `General`, `Output_1`, `Output_2`, `Output_3`, `_01_CF` .. `_12_CF`, `_CAPEX 01`, `CVU_GF`, `LT Capex`, `LT Fuel`, `LT CF`) are preserved with 100% of original Excel formulas, number formats, styles, and all staged overrides/solved outputs written to their exact cell coordinates, and provide the clickable `[filename.xlsx](file:///...)` link or live Google Sheets URL.

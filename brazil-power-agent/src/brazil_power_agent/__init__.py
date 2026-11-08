@@ -13,14 +13,7 @@ for _p in (str(AGENT_SRC_ROOT), str(V13_ROOT)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from brazil_power_agent.excel_renderer import ExcelLayoutRenderer
-from brazil_power_agent.install_customizations import (
-    install_skills_and_mcp,
-    verify_skills_and_mcp_installed,
-)
-from brazil_power_agent.mcp_server import MCP_TOOLS, handle_jsonrpc_request
-from brazil_power_agent.session_store import BrazilPowerSessionManager, SeedWorkbookLoader
-from brazil_power_agent.workbook_exporter import export_full_22tab_workbook
+from typing import Any
 
 __all__ = [
     "AGENT_SRC_ROOT",
@@ -35,3 +28,27 @@ __all__ = [
     "install_skills_and_mcp",
     "verify_skills_and_mcp_installed",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    if name in ("install_skills_and_mcp", "verify_skills_and_mcp_installed"):
+        from brazil_power_agent import install_customizations
+
+        return getattr(install_customizations, name)
+    if name == "ExcelLayoutRenderer":
+        from brazil_power_agent.excel_renderer import ExcelLayoutRenderer
+
+        return ExcelLayoutRenderer
+    if name in ("MCP_TOOLS", "handle_jsonrpc_request"):
+        from brazil_power_agent import mcp_server
+
+        return getattr(mcp_server, name)
+    if name in ("BrazilPowerSessionManager", "SeedWorkbookLoader"):
+        from brazil_power_agent import session_store
+
+        return getattr(session_store, name)
+    if name == "export_full_22tab_workbook":
+        from brazil_power_agent.workbook_exporter import export_full_22tab_workbook
+
+        return export_full_22tab_workbook
+    raise AttributeError(f"module 'brazil_power_agent' has no attribute {name!r}")

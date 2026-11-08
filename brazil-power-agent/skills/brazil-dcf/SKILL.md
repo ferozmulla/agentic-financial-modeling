@@ -46,9 +46,13 @@ Each of the 12 technology tabs (`_01_CF` .. `_12_CF`) in `2023-11-27-Brazil_TT_v
 
 ## Step-by-Step Execution Workflow
 
+> [!IMPORTANT]
+> **FAST-START LATENCY RULE (ZERO PRE-CARD TOOL CALLS)**:
+> When the analyst invokes `/brazil-dcf` without specifying a target technology tab, your **VERY FIRST AND ONLY tool call on Turn 1 MUST be `ask_question`**. Do **NOT** call `get_session_assumptions`, do **NOT** search the filesystem (`find_by_name`, `grep_search`, `list_dir`, `view_file`), and do **NOT** run shell commands before presenting the `ask_question` card below.
+
 ### Step 1: Interactive Technology & Financial Parameter Card (`ask_question`)
 
-If the analyst invokes `/brazil-dcf` without specifying a target technology tab, call `ask_question` to present the technology and financial parameter card:
+If the analyst invokes `/brazil-dcf` without specifying a target technology tab, immediately call `ask_question` on Turn 1 to present the technology and financial parameter card:
 
 ```json
 {
@@ -81,16 +85,16 @@ If the analyst invokes `/brazil-dcf` without specifying a target technology tab,
 ### Step 2: Apply Any Overrides & Call `run_dcf_cashflow_analysis`
 
 1. If the analyst selected financial overrides in `General!B5:N40`, call `update_session_assumptions` on `brazil-power-mcp` first.
-2. Call `run_dcf_cashflow_analysis(technology_code=..., start_year=2024, end_year=2053, include_cvu_gf_sweep=...)` on `brazil-power-mcp`.
+2. Call `run_dcf_cashflow_analysis(technology_code=..., start_year=2024, end_year=2053, include_cvu_gf_sweep=...)` on `brazil-power-mcp`. *(If `brazil-power-mcp` is not in your active MCP tool list, do NOT search the filesystem; invoke `mcp_server.py --call run_dcf_cashflow_analysis --args '<json>' --compact-llm` directly.)*
 
-### Step 3: Dual Inline (Valuation Header + Milestone DCF Table + ECharts) & Full 30-Column Side-Pane Artifact
+### Step 3: Dual Inline (Valuation Header + Milestone DCF Table + ECharts) & Pre-Saved 30-Column Side-Pane Artifact
 
-1. **Inline Valuation Header & Milestone DCF Table**: Render `inline_excel_table_md` directly in chat. This presents:
+1. **Inline Valuation Header & Milestone DCF Table**: Render `inline_markdown` (`inline_excel_table_md`) directly in chat. This presents:
    - The `_0N_CF!B2:H14` Executive Valuation Summary (`Installed Capacity`, `Base CAPEX`, `Lead Time`, `Economic Life`, `Capacity Factor`, `Real WACC`, `Breakeven LCOE Tariff`, `Project IRR`, `Equity IRR`, `Total 30-Yr Net Generation`, `Cumulative Undiscounted FCF`, `Discounted Payback`).
    - The 11-column Milestone Cash Flow table (`2024 (Col K)`, `2025 (Col L)`, `2026 (Col M)`, `2027 (Col N)`, `2028 (Col O)`, `2030 (Col Q)`, `2035 (Col V)`, `2040 (Col AA)`, `2045 (Col AF)`, `2050 (Col AK)`, `2053 (Col AN)`).
    - If `include_cvu_gf_sweep=True`, the 10-point `CVU_GF` & `_0N_CF!K7:N16` sweep table (`CVU 0..450 R$/MWh | GF (CF %) | Breakeven LCOE | Thermal ICB`).
-2. **Inline 30-Year FCF & Cumulative Discounted NPV Chart**: Call `render_chart` (`mcp_data-agent-kit_render_chart`) with `echarts_spec` (`echarts_option`) to render the 30-year stacked Bar/Line Free Cash Flow visual inline (and also call `render_chart` with `cvu_sweep_echarts_option` if the CVU sweep was requested).
-3. **Full 30-Column (`Col K..Col AN`) Side-Pane Artifact**: Write `full_artifact_table_md` to a side-pane **Artifact** (`brazil_v13_dcf_30yr_full_schedule.md`) via `write_to_file` (`UserFacing=True, RequestFeedback=False`) so the analyst can scroll across all 30 annual columns (`2024..2053`) exactly as in Excel tab `_0N_CF`.
+2. **Inline 30-Year FCF & Cumulative Discounted NPV Chart**: Call `render_chart` (`mcp_data-agent-kit_render_chart`) with `echarts_option` (`echarts_spec`) to render the 30-year stacked Bar/Line Free Cash Flow visual inline (and also call `render_chart` with `cvu_sweep_echarts_option` if the CVU sweep was requested).
+3. **Pre-Saved 30-Column (`Col K..Col AN`) Side-Pane Artifact**: `run_dcf_cashflow_analysis` automatically persists `full_artifact_table_md` (all 30 annual columns `2024..2053` across Rows `33–101`) to `artifact_file_path` (`artifact_file_uri`) on disk in `<1 ms`—do **not** regenerate all 30 columns token-by-token unless writing a conversation-scoped Artifact file via `write_to_file(UserFacing=True, RequestFeedback=False)` by copying from `artifact_file_path`.
 
 ### Step 4: Offer 1-Click 22-Tab Workbook Export (`export_full_22tab_workbook`)
 

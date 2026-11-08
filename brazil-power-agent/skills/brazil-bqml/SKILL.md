@@ -25,9 +25,13 @@ In the 22-tab Brazil Power v13 workbook, the three Connected Sheets tabs **`LT C
 
 ## Step-by-Step Execution Workflow
 
+> [!IMPORTANT]
+> **FAST-START LATENCY RULE (ZERO PRE-CARD TOOL CALLS)**:
+> When the analyst invokes `/brazil-bqml` without specifying which curves to refresh, your **VERY FIRST AND ONLY tool call on Turn 1 MUST be `ask_question`**. Do **NOT** call `get_session_assumptions`, do **NOT** search the filesystem (`find_by_name`, `grep_search`, `list_dir`, `view_file`), and do **NOT** run shell commands before presenting the `ask_question` card below.
+
 ### Step 1: Interactive Curve Selection & LCOE Chaining Card (`ask_question`)
 
-If the analyst invokes `/brazil-bqml` without specifying which curves to refresh, display the curve selection card via `ask_question`:
+If the analyst invokes `/brazil-bqml` without specifying which curves to refresh, immediately call `ask_question` on Turn 1 to display the curve selection card:
 
 ```json
 {
@@ -56,14 +60,14 @@ If the analyst invokes `/brazil-bqml` without specifying which curves to refresh
 
 ### Step 2: Execute `run_bqml_timeseries_refresh` on `brazil-power-mcp`
 
-1. Call `run_bqml_timeseries_refresh(curve_types=..., apply_to_session_lt_tabs=True)` on `brazil-power-mcp`.
+1. Call `run_bqml_timeseries_refresh(curve_types=..., apply_to_session_lt_tabs=True)` on `brazil-power-mcp`. *(If `brazil-power-mcp` is not in your active MCP tool list, do NOT search the filesystem; invoke `mcp_server.py --call run_bqml_timeseries_refresh --args '<json>' --compact-llm` directly.)*
 2. Note the returned `source` (`bigquery_live` or `offline_arima_plus_snapshot`) and number of updated cells across `LT Capex!B8:J30`, `LT Fuel!B8:J30`, and `LT CF!B8:J30`.
 
-### Step 3: Dual Inline (Summary Table + ECharts) & Full 23-Row Side-Pane Artifact
+### Step 3: Dual Inline (Summary Table + ECharts) & Pre-Saved 23-Row Side-Pane Artifact
 
-1. **Inline Excel Summary Table**: Render `inline_excel_table_md` directly in chat, showing milestone normalized index multipliers (`2024 = 1.0000`, `2025`, `2030`, `2035`, `2040`, `2046`) and `2024 -> 2046 Δ (%)` across `Col B (CCGT)` .. `Col J (Coal CFBC)`.
-2. **Inline ECharts Trajectory Chart**: Call `render_chart` (`mcp_data-agent-kit_render_chart`) with the returned `echarts_spec` (`echarts_option`) to display the 23-year normalized `ARIMA_PLUS` curves inline.
-3. **Full 23-Year `LT Capex / LT Fuel / LT CF` Side-Pane Artifact**: Write `full_artifact_table_md` into a side-pane **Artifact** (`brazil_v13_bqml_lt_trajectories.md`) via `write_to_file` (`UserFacing=True, RequestFeedback=False`) containing all 23 rows (`Row 8 = 2024` .. `Row 30 = 2046`) for each refreshed `LT` worksheet.
+1. **Inline Excel Summary Table**: Render `inline_markdown` (`inline_excel_table_md`) directly in chat, showing milestone normalized index multipliers (`2024 = 1.0000`, `2025`, `2030`, `2035`, `2040`, `2046`) and `2024 -> 2046 Δ (%)` across `Col B (CCGT)` .. `Col J (Coal CFBC)`.
+2. **Inline ECharts Trajectory Chart**: Call `render_chart` (`mcp_data-agent-kit_render_chart`) with the returned `echarts_option` (`echarts_spec`) to display the 23-year normalized `ARIMA_PLUS` curves inline.
+3. **Pre-Saved 23-Year `LT Capex / LT Fuel / LT CF` Side-Pane Artifact**: `run_bqml_timeseries_refresh` automatically persists `full_artifact_table_md` to `artifact_file_path` (`artifact_file_uri`) on disk in `<1 ms`. Link directly to `[<artifact_filename>](<artifact_file_uri>)` (or write `full_artifact_table_md` to `brazil_v13_bqml_lt_trajectories.md` via `write_to_file(UserFacing=True, RequestFeedback=False)`).
 
 ### Step 4: Optional Immediate Chain to `run_lcoe_horizon_forecast` & 22-Tab Export
 

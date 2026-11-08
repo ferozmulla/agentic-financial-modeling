@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any, BinaryIO, Callable
@@ -256,6 +257,37 @@ def _resolve_session_mgr(
     return BrazilPowerSessionManager()
 
 
+def _persist_artifact_markdown(artifact_filename: str, markdown_text: str) -> dict[str, str]:
+    """Write wide Excel-tab replica Markdown directly to disk so the LLM does not have to re-emit it token-by-token."""
+    export_root = Path(
+        os.environ.get(
+            "BRAZIL_POWER_ARTIFACT_DIR",
+            str(Path.home() / ".gemini" / "jetski" / "artifacts"),
+        )
+    )
+    export_root.mkdir(parents=True, exist_ok=True)
+    target_path = (export_root / artifact_filename).resolve()
+    target_path.write_text(markdown_text, encoding="utf-8")
+    return {
+        "artifact_file_path": str(target_path),
+        "artifact_file_uri": target_path.as_uri(),
+    }
+
+
+def _attach_artifact_and_aliases(
+    res: dict[str, Any],
+    artifact_filename: str,
+    echarts_value: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Attach standard alias keys and persist full_artifact_table_md directly to disk."""
+    res["inline_markdown"] = res["inline_excel_table_md"]
+    res["artifact_markdown"] = res["full_artifact_table_md"]
+    res["echarts_option"] = echarts_value
+    persisted = _persist_artifact_markdown(artifact_filename, res["full_artifact_table_md"])
+    res.update(persisted)
+    return res
+
+
 def get_session_assumptions(
     technologies: list[str] | None = None,
     include_full_general_tab: bool = True,
@@ -268,10 +300,7 @@ def get_session_assumptions(
         technologies=technologies,
         include_full_general_tab=include_full_general_tab,
     )
-    res["inline_markdown"] = res["inline_excel_table_md"]
-    res["artifact_markdown"] = res["full_artifact_table_md"]
-    res["echarts_option"] = None
-    return res
+    return _attach_artifact_and_aliases(res, "brazil_v13_general_assumptions.md", None)
 
 
 def update_session_assumptions(
@@ -286,10 +315,7 @@ def update_session_assumptions(
         overrides=overrides,
         reset_to_baseline=reset_to_baseline,
     )
-    res["inline_markdown"] = res["inline_excel_table_md"]
-    res["artifact_markdown"] = res["full_artifact_table_md"]
-    res["echarts_option"] = None
-    return res
+    return _attach_artifact_and_aliases(res, "brazil_v13_general_assumptions.md", None)
 
 
 def run_tornado_sensitivity(
@@ -304,10 +330,11 @@ def run_tornado_sensitivity(
         technology_code=technology_code,
         parity_mode=parity_mode,
     )
-    res["inline_markdown"] = res["inline_excel_table_md"]
-    res["artifact_markdown"] = res["full_artifact_table_md"]
-    res["echarts_option"] = res["echarts_spec"]
-    return res
+    return _attach_artifact_and_aliases(
+        res,
+        f"brazil_v13_tornado_{res.get('technology_code', technology_code).lower()}.md",
+        res["echarts_spec"],
+    )
 
 
 def run_bqml_timeseries_refresh(
@@ -322,10 +349,7 @@ def run_bqml_timeseries_refresh(
         curve_types=curve_types,
         apply_to_session_lt_tabs=apply_to_session_lt_tabs,
     )
-    res["inline_markdown"] = res["inline_excel_table_md"]
-    res["artifact_markdown"] = res["full_artifact_table_md"]
-    res["echarts_option"] = res["echarts_spec"]
-    return res
+    return _attach_artifact_and_aliases(res, "brazil_v13_bqml_lt_trajectories.md", res["echarts_spec"])
 
 
 def run_lcoe_horizon_forecast(
@@ -336,10 +360,7 @@ def run_lcoe_horizon_forecast(
     """Tool 5: Execute lcoe_exec (184 solves across 2024-2046 + Thermal ICB dispatch on Output_3!B9:J31)."""
     mgr = _resolve_session_mgr(session_mgr=session_mgr, session_path=session_path)
     res = mgr.run_lcoe_horizon(parity_mode=parity_mode)
-    res["inline_markdown"] = res["inline_excel_table_md"]
-    res["artifact_markdown"] = res["full_artifact_table_md"]
-    res["echarts_option"] = res["echarts_spec"]
-    return res
+    return _attach_artifact_and_aliases(res, "brazil_v13_output3_lcoe_horizon.md", res["echarts_spec"])
 
 
 def run_dcf_cashflow_analysis(
@@ -376,7 +397,12 @@ def run_dcf_cashflow_analysis(
 
     if do_cvu:
         cvu_res = mgr.run_cvu_gf_sweep(technology_code=norm_code, parity_mode=parity_mode)
-        res["cvu_gf_sweep"] = cvu_res
+        res["cvu_gf_sweep"] = {
+            "technology_code": cvu_res["technology_code"],
+            "macro_name": cvu_res["macro_name"],
+            "solve_count": cvu_res["solve_count"],
+            "execution_time_ms": cvu_res["execution_time_ms"],
+        }
         res["cvu_sweep_echarts_option"] = cvu_res["echarts_spec"]
         res["inline_excel_table_md"] = (
             res["inline_excel_table_md"] + "\n\n---\n\n" + cvu_res["inline_excel_table_md"]
@@ -386,10 +412,11 @@ def run_dcf_cashflow_analysis(
             res["full_artifact_table_md"] + "\n\n---\n\n" + cvu_res["full_artifact_table_md"]
         )
 
-    res["inline_markdown"] = res["inline_excel_table_md"]
-    res["artifact_markdown"] = res["full_artifact_table_md"]
-    res["echarts_option"] = res["echarts_spec"]
-    return res
+    return _attach_artifact_and_aliases(
+        res,
+        f"brazil_v13_dcf_30yr_{norm_code.lower()}.md",
+        res["echarts_spec"],
+    )
 
 
 def export_full_22tab_workbook(
@@ -418,10 +445,7 @@ def export_full_22tab_workbook(
         res["file_uri"] = None
     res["inline_excel_table_md"] = res["summary_md"]
     res["full_artifact_table_md"] = res["summary_md"]
-    res["inline_markdown"] = res["summary_md"]
-    res["artifact_markdown"] = res["summary_md"]
-    res["echarts_option"] = None
-    return res
+    return _attach_artifact_and_aliases(res, "brazil_v13_export_summary.md", None)
 
 
 TOOL_HANDLERS: dict[str, Callable[..., dict[str, Any]]] = {
@@ -433,6 +457,40 @@ TOOL_HANDLERS: dict[str, Callable[..., dict[str, Any]]] = {
     "run_dcf_cashflow_analysis": run_dcf_cashflow_analysis,
     "export_full_22tab_workbook": export_full_22tab_workbook,
 }
+
+
+_BULK_INTERNAL_KEYS: frozenset[str] = frozenset({
+    "inline_excel_table_md",
+    "inline_summary_table_md",
+    "full_artifact_table_md",
+    "echarts_spec",
+    "annual_rows",
+    "flat_outputs",
+    "lcoe_grid",
+    "rows",
+    "trajectories",
+    "assumptions",
+    "baseline_assumptions",
+    "all_technologies",
+    "tornado_rows",
+    "results",
+    "summary_md",
+})
+
+
+def build_compact_llm_payload(
+    payload: dict[str, Any],
+    omit_artifact_markdown: bool = False,
+) -> dict[str, Any]:
+    """Strip duplicate markdown strings and raw float matrices from the serialized LLM context payload."""
+    compact: dict[str, Any] = {}
+    for k, v in payload.items():
+        if k in _BULK_INTERNAL_KEYS:
+            continue
+        if omit_artifact_markdown and k == "artifact_markdown":
+            continue
+        compact[k] = v
+    return compact
 
 
 def call_mcp_tool(
@@ -450,7 +508,6 @@ def call_mcp_tool(
 
 
 dispatch_mcp_tool = call_mcp_tool
-
 
 
 def handle_jsonrpc_request(
@@ -503,7 +560,8 @@ def handle_jsonrpc_request(
         arguments = params.get("arguments") or {}
         try:
             payload = call_mcp_tool(tool_name, arguments=arguments, session_mgr=session_mgr)
-            serialized = json.dumps(payload, ensure_ascii=False)
+            compact_payload = build_compact_llm_payload(payload, omit_artifact_markdown=False)
+            serialized = json.dumps(compact_payload, ensure_ascii=False)
             return {
                 "jsonrpc": "2.0",
                 "id": req_id,
@@ -593,6 +651,23 @@ def serve_stdio_stream(
                 out_stream.flush()
 
 
+def resolve_preferred_python_executable(repo_root: str | Path | None = None) -> str:
+    """Resolve the platform-appropriate virtualenv Python binary (.venv-linux on Linux, .venv on macOS/Linux)."""
+    root_path = Path(repo_root).resolve() if repo_root is not None else WORKSPACE_ROOT
+    candidates: list[Path] = []
+    if sys.platform.startswith("linux"):
+        candidates.append(root_path / ".venv-linux" / "bin" / "python")
+    candidates.extend([
+        root_path / ".venv" / "bin" / "python",
+        root_path / ".venv-linux" / "bin" / "python",
+        root_path / "brazil-power-v13" / ".venv" / "bin" / "python",
+    ])
+    for cand in candidates:
+        if cand.is_file() and os.access(cand, os.X_OK):
+            return str(cand)
+    return sys.executable or "python3"
+
+
 def build_mcp_server_config_entry(repo_root: str | Path | None = None) -> dict[str, Any]:
     """Build the `~/.gemini/config/mcp_config.json` server entry for `brazil-power-mcp`."""
     root_path = Path(repo_root).resolve() if repo_root is not None else WORKSPACE_ROOT
@@ -600,7 +675,7 @@ def build_mcp_server_config_entry(repo_root: str | Path | None = None) -> dict[s
     v13_dir = root_path / "brazil-power-v13"
     server_script = agent_src / "brazil_power_agent" / "mcp_server.py"
     return {
-        "command": sys.executable or "python3",
+        "command": resolve_preferred_python_executable(root_path),
         "args": [str(server_script)],
         "env": {
             "PYTHONPATH": f"{agent_src}:{v13_dir}",
@@ -609,7 +684,27 @@ def build_mcp_server_config_entry(repo_root: str | Path | None = None) -> dict[s
 
 
 def main() -> None:
-    """Entry point for running `brazil-power-mcp` over stdio."""
+    """Entry point for running `brazil-power-mcp` over stdio or via one-shot `--call` CLI."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Brazil Power v13 MCP Stdio Server & Fast CLI")
+    parser.add_argument("--call", type=str, default=None, help="Directly invoke one of the 7 MCP tools by name")
+    parser.add_argument("--args", type=str, default="{}", help="JSON arguments dictionary for --call")
+    parser.add_argument(
+        "--compact-llm",
+        action="store_true",
+        help="Omit full artifact_markdown from stdout (already saved to artifact_file_path)",
+    )
+    parsed_args, _ = parser.parse_known_args()
+
+    if parsed_args.call:
+        tool_args = json.loads(parsed_args.args) if parsed_args.args else {}
+        full_res = call_mcp_tool(parsed_args.call, arguments=tool_args)
+        out_res = build_compact_llm_payload(full_res, omit_artifact_markdown=parsed_args.compact_llm)
+        sys.stdout.write(json.dumps(out_res, ensure_ascii=False) + "\n")
+        sys.stdout.flush()
+        return
+
     serve_stdio_stream(sys.stdin.buffer, sys.stdout.buffer)
 
 

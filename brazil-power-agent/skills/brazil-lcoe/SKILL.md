@@ -30,9 +30,13 @@ The `lcoe_exec` macro iterates over each forecast year `t ∈ [2024..2046]` (`Ou
 
 ## Step-by-Step Execution Workflow
 
+> [!IMPORTANT]
+> **FAST-START LATENCY RULE (ZERO PRE-CARD TOOL CALLS)**:
+> When the analyst invokes `/brazil-lcoe` without specifying parameters, your **VERY FIRST AND ONLY tool call on Turn 1 MUST be `ask_question`**. Do **NOT** call `get_session_assumptions`, do **NOT** search the filesystem (`find_by_name`, `grep_search`, `list_dir`, `view_file`), and do **NOT** run shell commands before presenting the `ask_question` card below.
+
 ### Step 1: Interactive Assumption & Parity Mode Card (`ask_question`)
 
-If the analyst invokes `/brazil-lcoe` without specifying parameters, present a quick configuration card via `ask_question`:
+If the analyst invokes `/brazil-lcoe` without specifying parameters, immediately call `ask_question` on Turn 1 to present a quick configuration card:
 
 ```json
 {
@@ -64,13 +68,13 @@ If the analyst invokes `/brazil-lcoe` without specifying parameters, present a q
 
 1. If the analyst chose to modify `General!B5:N40` assumptions, call `update_session_assumptions` on `brazil-power-mcp` first.
 2. If the analyst chose to refresh the BigQuery ML `ARIMA_PLUS` curves first, call `run_bqml_timeseries_refresh` on `brazil-power-mcp`.
-3. Call `run_lcoe_horizon_forecast(parity_mode=...)` on `brazil-power-mcp`.
+3. Call `run_lcoe_horizon_forecast(parity_mode=...)` on `brazil-power-mcp`. *(If `brazil-power-mcp` is not in your active MCP tool list, do NOT search the filesystem; invoke `mcp_server.py --call run_lcoe_horizon_forecast --args '<json>' --compact-llm` directly.)*
 
-### Step 3: Dual Inline (`Output_3` Milestone Table + ECharts) & Full 23-Row Side-Pane Artifact
+### Step 3: Dual Inline (`Output_3` Milestone Table + ECharts) & Pre-Saved 23-Row Side-Pane Artifact
 
-1. **Compact Inline Milestone Table**: Render `inline_excel_table_md` directly in the chat response, showing the 5-year milestone rows (`2024 (Row 9)`, `2025 (Row 10)`, `2030 (Row 15)`, `2035 (Row 20)`, `2040 (Row 25)`, `2046 (Row 31)`) across all 9 columns (`Col B CCGT` .. `Col J Coal CFBC`) in `R$/MWh` with `2024 -> 2046 Δ (R$/MWh)` and `Δ (%)`.
-2. **Inline Multi-Series Trajectory Chart**: Call `render_chart` (`mcp_data-agent-kit_render_chart`) with the returned `echarts_spec` (`echarts_option`) to plot the 23-year (`2024–2046`) LCOE trajectories across technologies.
-3. **Full 23-Row `Output_3!B8:J31` Side-Pane Artifact**: Write `full_artifact_table_md` to a side-pane **Artifact** (`brazil_v13_output3_lcoe_horizon.md`) via `write_to_file` (`UserFacing=True, RequestFeedback=False`) so the analyst can inspect every single row from `Row 9 (2024)` through `Row 31 (2046)`.
+1. **Compact Inline Milestone Table**: Render `inline_markdown` (`inline_excel_table_md`) directly in the chat response, showing the 5-year milestone rows (`2024 (Row 9)`, `2025 (Row 10)`, `2030 (Row 15)`, `2035 (Row 20)`, `2040 (Row 25)`, `2046 (Row 31)`) across all 9 columns (`Col B CCGT` .. `Col J Coal CFBC`) in `R$/MWh` with `2024 -> 2046 Δ (R$/MWh)` and `Δ (%)`.
+2. **Inline Multi-Series Trajectory Chart**: Call `render_chart` (`mcp_data-agent-kit_render_chart`) with the returned `echarts_option` (`echarts_spec`) to plot the 23-year (`2024–2046`) LCOE trajectories across technologies.
+3. **Pre-Saved 23-Row `Output_3!B8:J31` Side-Pane Artifact**: `run_lcoe_horizon_forecast` automatically persists `full_artifact_table_md` to `artifact_file_path` (`artifact_file_uri`) on disk in `<1 ms`. Link directly to `[<artifact_filename>](<artifact_file_uri>)` (or write `full_artifact_table_md` to `brazil_v13_output3_lcoe_horizon.md` via `write_to_file(UserFacing=True, RequestFeedback=False)`).
 
 ### Step 4: Offer 1-Click 22-Tab Workbook Export (`export_full_22tab_workbook`)
 

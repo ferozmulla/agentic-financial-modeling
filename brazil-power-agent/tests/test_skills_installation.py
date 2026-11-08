@@ -75,8 +75,17 @@ def test_install_skills_and_mcp_to_custom_config_dir(tmp_path: Path) -> None:
         assert "Artifact" in content
         assert "export_full_22tab_workbook" in content
         assert "22-tab" in content.lower()
+        assert "ZERO PRE-CARD TOOL CALLS" in content
+        assert "artifact_file_uri" in content
+        assert "--compact-llm" in content
+
+    # Verify Cause 2 sequential question flow is preserved in brazil-power-model/SKILL.md
+    master_skill = (tmp_path / "skills" / "brazil-power-model" / "SKILL.md").read_text(encoding="utf-8")
+    assert "Step 2: Apply Any Assumption Overrides & Immediately Present Card 2" in master_skill
+    assert "Step 3: Card 2 — Sequential Interactive Analysis Selection Card (`ask_question`)" in master_skill
 
     status = verify_skills_and_mcp_installed(config_dir=tmp_path)
     assert status["mcp_registered"] is True
     assert set(status["installed_skills"]) == set(EXPECTED_SKILLS)
     assert status["all_valid"] is True
+

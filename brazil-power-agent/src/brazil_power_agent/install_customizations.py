@@ -5,14 +5,45 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import sys
 from pathlib import Path
 from typing import Any
 
-from brazil_power_agent.mcp_server import (
-    MCP_SERVER_NAME,
-    WORKSPACE_ROOT,
-    build_mcp_server_config_entry,
-)
+MCP_SERVER_NAME = "brazil-power-mcp"
+WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
+
+
+def resolve_preferred_python_executable(repo_root: str | Path | None = None) -> str:
+    """Resolve the platform-appropriate virtualenv Python binary (.venv-linux on Linux, .venv on macOS/Linux)."""
+    root_path = Path(repo_root).resolve() if repo_root is not None else WORKSPACE_ROOT
+    candidates: list[Path] = []
+    if sys.platform.startswith("linux"):
+        candidates.append(root_path / ".venv-linux" / "bin" / "python")
+    candidates.extend([
+        root_path / ".venv" / "bin" / "python",
+        root_path / ".venv-linux" / "bin" / "python",
+        root_path / "brazil-power-v13" / ".venv" / "bin" / "python",
+    ])
+    for cand in candidates:
+        if cand.is_file() and os.access(cand, os.X_OK):
+            return str(cand)
+    return sys.executable or "python3"
+
+
+def build_mcp_server_config_entry(repo_root: str | Path | None = None) -> dict[str, Any]:
+    """Build the `~/.gemini/config/mcp_config.json` server entry for `brazil-power-mcp` using stdlib only."""
+    root_path = Path(repo_root).resolve() if repo_root is not None else WORKSPACE_ROOT
+    agent_src = root_path / "brazil-power-agent" / "src"
+    v13_dir = root_path / "brazil-power-v13"
+    server_script = agent_src / "brazil_power_agent" / "mcp_server.py"
+    return {
+        "command": resolve_preferred_python_executable(root_path),
+        "args": [str(server_script)],
+        "env": {
+            "PYTHONPATH": f"{agent_src}:{v13_dir}",
+        },
+    }
+
 
 EXPECTED_SKILLS: tuple[str, ...] = (
     "brazil-power-model",

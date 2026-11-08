@@ -288,3 +288,50 @@ def test_adk_agent_wrapper_and_mcp_config_helper(tmp_path: Path) -> None:
     assert "command" in cfg_entry
     assert "args" in cfg_entry
     assert "PYTHONPATH" in cfg_entry["env"]
+
+
+def test_compact_llm_payload_and_presaved_artifacts(tmp_path: Path) -> None:
+    session_file = tmp_path / "compact_session.json"
+    mgr = BrazilPowerSessionManager(session_path=session_file)
+
+    resp = handle_jsonrpc_request(
+        {
+            "jsonrpc": "2.0",
+            "id": 301,
+            "method": "tools/call",
+            "params": {
+                "name": "run_dcf_cashflow_analysis",
+                "arguments": {
+                    "technology_code": "_06_CF",
+                    "start_year": 2024,
+                    "end_year": 2053,
+                    "include_cvu_gf_sweep": True,
+                },
+            },
+        },
+        session_mgr=mgr,
+    )
+    assert resp is not None and not resp["result"].get("isError", False)
+
+    compact_text = resp["result"]["content"][-1]["text"]
+    compact_payload = json.loads(compact_text)
+    full_structured = resp["result"]["structuredContent"]
+    full_text = json.dumps(full_structured)
+
+    # Cause 3: Artifact markdown is pre-saved directly to disk in < 1 ms
+    assert "artifact_file_path" in compact_payload
+    assert "artifact_file_uri" in compact_payload
+    assert compact_payload["artifact_file_uri"].startswith("file://")
+    saved_artifact = Path(compact_payload["artifact_file_path"])
+    assert saved_artifact.is_file()
+    assert "_06_CF" in saved_artifact.read_text(encoding="utf-8")
+
+    # Cause 3: Compact LLM payload strips duplicate keys & bulky raw arrays from content[-1]["text"]
+    assert "inline_excel_table_md" not in compact_payload
+    assert "full_artifact_table_md" not in compact_payload
+    assert "echarts_spec" not in compact_payload
+    assert "inline_excel_table_md" in full_structured
+    assert "full_artifact_table_md" in full_structured
+    assert "echarts_spec" in full_structured
+    assert len(compact_text) < len(full_text) * 0.55
+

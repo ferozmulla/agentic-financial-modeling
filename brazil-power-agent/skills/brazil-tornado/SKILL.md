@@ -30,9 +30,13 @@ In the original Excel workbook, each technology cash-flow tab `_01_CF` .. `_12_C
 
 ## Step-by-Step Execution Workflow
 
+> [!IMPORTANT]
+> **FAST-START LATENCY RULE (ZERO PRE-CARD TOOL CALLS)**:
+> When the analyst invokes `/brazil-tornado` without specifying a target technology, your **VERY FIRST AND ONLY tool call on Turn 1 MUST be `ask_question`**. Do **NOT** call `get_session_assumptions`, do **NOT** search the filesystem (`find_by_name`, `grep_search`, `list_dir`, `view_file`), and do **NOT** run shell commands before presenting the `ask_question` card below.
+
 ### Step 1: Interactive Technology & Baseline Assumption Card (`ask_question`)
 
-If the analyst did not specify a target technology (`_01_CF` .. `_12_CF` or `ALL`) in their prompt, call `ask_question` to display a compact visual selection card with current `General!B5:N40` baseline values:
+If the analyst did not specify a target technology (`_01_CF` .. `_12_CF` or `ALL`) in their prompt, immediately call `ask_question` on Turn 1 to display a compact visual selection card with current `General!B5:N40` baseline values:
 
 ```json
 {
@@ -65,13 +69,13 @@ If the analyst did not specify a target technology (`_01_CF` .. `_12_CF` or `ALL
 ### Step 2: Apply Any Assumption Overrides & Execute `run_tornado_sensitivity`
 
 1. If the analyst requested parameter overrides or a baseline reset, call `update_session_assumptions` on `brazil-power-mcp` and show the affected `General!B5:N40` cell coordinate diff (`Baseline -> Current (Δ%)`).
-2. Call `run_tornado_sensitivity(technology_code=..., parity_mode="strict_legacy_vba")` on `brazil-power-mcp`.
+2. Call `run_tornado_sensitivity(technology_code=..., parity_mode="strict_legacy_vba")` on `brazil-power-mcp`. *(If `brazil-power-mcp` is not in your active MCP tool list, do NOT search the filesystem; invoke `mcp_server.py --call run_tornado_sensitivity --args '<json>' --compact-llm` directly.)*
 
-### Step 3: Render Inline Excel Replica Table (`_0N_CF!A4:H12`), ECharts Visual (`render_chart`), and Side-Pane Artifact
+### Step 3: Render Inline Excel Replica Table (`_0N_CF!A4:H12`), ECharts Visual (`render_chart`), and Pre-Saved Side-Pane Artifact
 
-1. **Inline Excel Table**: Output `inline_excel_table_md` directly in your chat response. This displays the exact `_0N_CF!A4:H12` table (`Cell Range | Parameter | -10% Shock (Col E) | Base IRR (Col F) | +10% Shock (Col G) | Total Spread (bps)`) plus the `Output_1` summary block.
-2. **Inline Horizontal Tornado Chart**: Call `render_chart` (`mcp_data-agent-kit_render_chart`) with the returned `echarts_spec` (`echarts_option`) so the analyst immediately sees the sorted horizontal Tornado bars (`-10% Shock` vs `+10% Shock` in bps around Base Project IRR).
-3. **Side-Pane Artifact**: Write `full_artifact_table_md` into a side-pane **Artifact** (`brazil_v13_tornado_sensitivity.md`) via `write_to_file` (`UserFacing=True, RequestFeedback=False`) containing the full multi-block `_01_CF.._12_CF!A4:H12` and `Output_1` spreadsheet tables.
+1. **Inline Excel Table**: Output `inline_markdown` (`inline_excel_table_md`) directly in your chat response. This displays the exact `_0N_CF!A4:H12` table (`Cell Range | Parameter | -10% Shock (Col E) | Base IRR (Col F) | +10% Shock (Col G) | Total Spread (bps)`) plus the `Output_1` summary block.
+2. **Inline Horizontal Tornado Chart**: Call `render_chart` (`mcp_data-agent-kit_render_chart`) with the returned `echarts_option` (`echarts_spec`) so the analyst immediately sees the sorted horizontal Tornado bars (`-10% Shock` vs `+10% Shock` in bps around Base Project IRR).
+3. **Pre-Saved Side-Pane Artifact**: `run_tornado_sensitivity` automatically persists `full_artifact_table_md` to `artifact_file_path` (`artifact_file_uri`) on disk in `<1 ms`. Link directly to `[<artifact_filename>](<artifact_file_uri>)` (or write `full_artifact_table_md` to `brazil_v13_tornado_sensitivity.md` via `write_to_file(UserFacing=True, RequestFeedback=False)`).
 
 ### Step 4: Offer 1-Click 22-Tab Workbook Export (`export_full_22tab_workbook`)
 
