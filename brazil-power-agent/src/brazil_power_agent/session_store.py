@@ -939,3 +939,12 @@ class BrazilPowerSessionManager:
             "full_artifact_table_md": full_md,
             "echarts_spec": echarts_spec,
         }
+
+    def run_cvu_gf_sweep(
+        self,
+        technology_code: str = "_01_CF",
+        parity_mode: str = "strict_legacy_vba",
+    ) -> dict[str, Any]:
+        """Alias for run_cvu_sweep executing calculo_cvu<N> 1D CVU & Physical Guarantee sweep."""
+        return self.run_cvu_sweep(technology_code=technology_code, parity_mode=parity_mode)
+
