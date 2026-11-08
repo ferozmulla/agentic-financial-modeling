@@ -290,7 +290,7 @@ def _spawn_brain_artifact_guard(artifact_filename: str, canonical_path: Path) ->
         return
     guard_code = (
         "import os, pathlib, sys, time\n"
-        f"sys.path.insert(0, {str(AGENT_SRC_DIR)!r})\n"
+        f"sys.path.insert(0, {str(AGENT_SRC_ROOT)!r})\n"
         "from brazil_power_agent.excel_renderer import normalize_markdown_table\n"
         "fname = sys.argv[1]\n"
         "cpath = pathlib.Path(sys.argv[2])\n"
