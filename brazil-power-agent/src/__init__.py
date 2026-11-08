@@ -9,6 +9,7 @@ from brazil_power_agent import (
     BrazilPowerSessionManager,
     ExcelLayoutRenderer,
     SeedWorkbookLoader,
+    export_full_22tab_workbook,
 )
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "BrazilPowerSessionManager",
     "ExcelLayoutRenderer",
     "SeedWorkbookLoader",
+    "export_full_22tab_workbook",
 ]

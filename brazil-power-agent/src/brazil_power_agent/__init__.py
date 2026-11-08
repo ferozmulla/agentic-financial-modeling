@@ -15,6 +15,7 @@ for _p in (str(AGENT_SRC_ROOT), str(V13_ROOT)):
 
 from brazil_power_agent.excel_renderer import ExcelLayoutRenderer
 from brazil_power_agent.session_store import BrazilPowerSessionManager, SeedWorkbookLoader
+from brazil_power_agent.workbook_exporter import export_full_22tab_workbook
 
 __all__ = [
     "AGENT_SRC_ROOT",
@@ -23,4 +24,5 @@ __all__ = [
     "BrazilPowerSessionManager",
     "ExcelLayoutRenderer",
     "SeedWorkbookLoader",
+    "export_full_22tab_workbook",
 ]

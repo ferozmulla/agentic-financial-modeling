@@ -426,14 +426,21 @@ class BrazilPowerSessionManager:
             "full_artifact_table_md": assumptions_view["full_artifact_table_md"],
         }
 
+    def _upsert_cell_range_update(self, sheet: str, cell_range: str, values: list[list[Any]]) -> None:
+        """Insert or replace a 2D cell range update keyed by (sheet, range), preserving latest update order."""
+        self.cell_range_updates = [
+            item
+            for item in self.cell_range_updates
+            if not (item.get("sheet") == sheet and item.get("range") == cell_range)
+        ]
+        self.cell_range_updates.append({"sheet": sheet, "range": cell_range, "values": values})
+
     def _record_macro_outputs(self, response: Any) -> None:
         """Persist solved macro cell updates and flat outputs into the session."""
         for k, v in response.flat_outputs.items():
             self.solved_outputs[k] = v
         for cu in response.cell_updates:
-            self.cell_range_updates.append(
-                {"sheet": cu.sheet, "range": cu.range, "values": cu.values}
-            )
+            self._upsert_cell_range_update(cu.sheet, cu.range, cu.values)
 
     def run_tornado(
         self,
@@ -611,9 +618,7 @@ class BrazilPowerSessionManager:
             for c_key, sheet_name, grid in tab_mapping:
                 if c_key not in upper_set:
                     continue
-                self.cell_range_updates.append(
-                    {"sheet": sheet_name, "range": "B8:J30", "values": grid}
-                )
+                self._upsert_cell_range_update(sheet_name, "B8:J30", grid)
                 for yr_idx, row in enumerate(grid):
                     r_num = 8 + yr_idx
                     for c_meta in OUTPUT3_COLUMNS:
