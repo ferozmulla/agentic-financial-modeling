@@ -12,6 +12,8 @@ from brazil_power_agent import (
     SeedWorkbookLoader,
     export_full_22tab_workbook,
     handle_jsonrpc_request,
+    install_skills_and_mcp,
+    verify_skills_and_mcp_installed,
 )
 
 __all__ = [
@@ -24,4 +26,6 @@ __all__ = [
     "SeedWorkbookLoader",
     "export_full_22tab_workbook",
     "handle_jsonrpc_request",
+    "install_skills_and_mcp",
+    "verify_skills_and_mcp_installed",
 ]

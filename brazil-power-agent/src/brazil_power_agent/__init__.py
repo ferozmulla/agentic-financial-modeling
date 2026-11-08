@@ -14,6 +14,10 @@ for _p in (str(AGENT_SRC_ROOT), str(V13_ROOT)):
         sys.path.insert(0, _p)
 
 from brazil_power_agent.excel_renderer import ExcelLayoutRenderer
+from brazil_power_agent.install_customizations import (
+    install_skills_and_mcp,
+    verify_skills_and_mcp_installed,
+)
 from brazil_power_agent.mcp_server import MCP_TOOLS, handle_jsonrpc_request
 from brazil_power_agent.session_store import BrazilPowerSessionManager, SeedWorkbookLoader
 from brazil_power_agent.workbook_exporter import export_full_22tab_workbook
@@ -28,4 +32,6 @@ __all__ = [
     "SeedWorkbookLoader",
     "export_full_22tab_workbook",
     "handle_jsonrpc_request",
+    "install_skills_and_mcp",
+    "verify_skills_and_mcp_installed",
 ]
