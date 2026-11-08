@@ -789,6 +789,7 @@ def main() -> None:
     parsed_args, _ = parser.parse_known_args()
 
     if parsed_args.seed_artifacts:
+        os.environ["BRAZIL_POWER_DISABLE_ARTIFACT_GUARD"] = "1"
         res = get_session_assumptions()
         # Also normalize any existing brazil_v13_*.md files in ~/.gemini/jetski/brain/*/
         brain_root = Path.home() / ".gemini" / "jetski" / "brain"
