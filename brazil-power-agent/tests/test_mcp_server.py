@@ -373,4 +373,11 @@ def test_compact_llm_payload_and_presaved_artifacts(tmp_path: Path) -> None:
     assert "$" not in repaired
     assert len([ln for ln in repaired.splitlines() if ln.startswith("|")]) == 3
 
+    # Verify content[0]["text"] (and CLI --call default output) is real multi-line Markdown with physical newlines
+    multiline_report_text = gen_resp["result"]["content"][0]["text"]
+    assert "### Full Multi-Line Artifact Markdown Replica" in multiline_report_text
+    assert "| |" not in multiline_report_text
+    report_table_lines = [ln for ln in multiline_report_text.splitlines() if ln.startswith("|")]
+    assert len(report_table_lines) >= 36
+
 

@@ -75,7 +75,7 @@ If the analyst did not specify a target technology (`_01_CF` .. `_12_CF` or `ALL
 
 1. **Inline Excel Table**: Output `inline_markdown` (`inline_excel_table_md`) directly in your chat response. This displays the exact `_0N_CF!A4:H12` table (`Cell Range | Parameter | -10% Shock (Col E) | Base IRR (Col F) | +10% Shock (Col G) | Total Spread (bps)`) plus the `Output_1` summary block.
 2. **Inline Horizontal Tornado Chart**: Call `render_chart` (`mcp_data-agent-kit_render_chart`) with the returned `echarts_option` (`echarts_spec`) so the analyst immediately sees the sorted horizontal Tornado bars (`-10% Shock` vs `+10% Shock` in bps around Base Project IRR).
-3. **Pre-Saved Side-Pane Artifact**: `run_tornado_sensitivity` automatically writes the multi-line `full_artifact_table_md` directly into your active conversation brain folder at `artifact_file_path` (`artifact_file_uri`) in `<1 ms` and runs an automatic file-guard. Link directly to `[<artifact_filename>](<artifact_file_uri>)` (if calling `write_to_file` to open the side-pane Artifact tab, pass `TargetFile=artifact_file_path` and a 1-line stub `CodeContent="# Loading Excel Tab Replica..."` — NEVER re-type the multi-column Markdown table inside `write_to_file`).
+3. **Pre-Saved Side-Pane Artifact**: `run_tornado_sensitivity` outputs the full multi-line Markdown table with real physical `\n` newlines and pre-saves it to `artifact_file_path` (`artifact_file_uri`). When calling `write_to_file` (`TargetFile=artifact_file_path`, `UserFacing=true`) to open the side-pane Artifact tab, preserve every physical newline (`\n`) at the end of each `| ... |` table row — NEVER collapse multiple rows onto one line separated by `| |`.
 
 ### Step 4: Offer 1-Click 22-Tab Workbook Export (`export_full_22tab_workbook`)
 

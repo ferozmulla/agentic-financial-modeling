@@ -114,6 +114,29 @@ def resolve_target_config_dir(
     return root_path / "brazil-power-agent" / ".gemini_config"
 
 
+def _inject_resolved_cli_into_skill_md(raw_md: str, server_entry: dict[str, Any]) -> str:
+    """Inject the machine's pre-resolved Python + PYTHONPATH CLI command into an installed SKILL.md."""
+    py_cmd = server_entry.get("command", "python3")
+    script_path = (server_entry.get("args") or ["mcp_server.py"])[0]
+    py_path = (server_entry.get("env") or {}).get("PYTHONPATH", "")
+    cli_block = (
+        "\n> [!IMPORTANT]\n"
+        "> **PRE-RESOLVED FAST CLI COMMAND (ZERO FILESYSTEM SEARCH)**:\n"
+        "> If `brazil-power-mcp` tools are not directly in your active MCP tool list, execute this exact pre-resolved command via `run_command` (NEVER search the filesystem for `mcp_server.py` or `.venv-linux`):\n"
+        f'> `PYTHONPATH="{py_path}" "{py_cmd}" "{script_path}" --call <tool_name> --args \'<json_args>\' --compact-llm`\n'
+    )
+    if "PRE-RESOLVED FAST CLI COMMAND" in raw_md:
+        return raw_md
+    lines = raw_md.splitlines()
+    if lines and lines[0].strip() == "---":
+        for idx in range(1, len(lines)):
+            if lines[idx].strip() == "---":
+                head = "\n".join(lines[: idx + 1])
+                tail = "\n".join(lines[idx + 1 :])
+                return f"{head}\n{cli_block}{tail}\n"
+    return raw_md + "\n" + cli_block
+
+
 def install_skills_and_mcp(
     config_dir: str | Path | None = None,
     repo_root: str | Path | None = None,
@@ -125,6 +148,9 @@ def install_skills_and_mcp(
 
     target_skills_root = target_dir / "skills"
     target_skills_root.mkdir(parents=True, exist_ok=True)
+
+    server_entry = build_mcp_server_config_entry(repo_root=root_path)
+    server_entry.setdefault("env", {})["GEMINI_ENTERPRISE_APP_ID"] = "cb0f4566-dfad-496c-9b28-3542d86a5367"
 
     installed_skills: list[str] = []
     skill_paths: dict[str, str] = {}
@@ -146,8 +172,15 @@ def install_skills_and_mcp(
             else:
                 shutil.copy2(item, dest_item)
 
+        dest_skill_md = dest_skill_dir / "SKILL.md"
+        injected_md = _inject_resolved_cli_into_skill_md(
+            dest_skill_md.read_text(encoding="utf-8"),
+            server_entry,
+        )
+        dest_skill_md.write_text(injected_md, encoding="utf-8")
+
         installed_skills.append(skill_name)
-        skill_paths[skill_name] = str(dest_skill_dir / "SKILL.md")
+        skill_paths[skill_name] = str(dest_skill_md)
 
     mcp_config_path = target_dir / "mcp_config.json"
     existing_config: dict[str, Any] = {}
@@ -158,8 +191,6 @@ def install_skills_and_mcp(
             existing_config = {}
 
     mcp_servers = dict(existing_config.get("mcpServers") or {})
-    server_entry = build_mcp_server_config_entry(repo_root=root_path)
-    server_entry.setdefault("env", {})["GEMINI_ENTERPRISE_APP_ID"] = "cb0f4566-dfad-496c-9b28-3542d86a5367"
     mcp_servers[MCP_SERVER_NAME] = server_entry
     existing_config["mcpServers"] = mcp_servers
 

@@ -78,6 +78,8 @@ def test_install_skills_and_mcp_to_custom_config_dir(tmp_path: Path) -> None:
         assert "ZERO PRE-CARD TOOL CALLS" in content
         assert "artifact_file_uri" in content
         assert "--compact-llm" in content
+        assert "PRE-RESOLVED FAST CLI COMMAND" in content
+        assert "PYTHONPATH=" in content
 
     # Verify Cause 2 sequential question flow is preserved in brazil-power-model/SKILL.md
     master_skill = (tmp_path / "skills" / "brazil-power-model" / "SKILL.md").read_text(encoding="utf-8")

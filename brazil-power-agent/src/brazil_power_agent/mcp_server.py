@@ -285,18 +285,29 @@ def _discover_active_brain_dirs(artifact_filename: str, max_dirs: int = 3) -> li
 
 
 def _spawn_brain_artifact_guard(artifact_filename: str, canonical_path: Path) -> None:
-    """Spawn a detached 90s file-guard that repairs collapsed single-line '| |' or stub write_to_file overwrites."""
+    """Spawn a detached 600s file-guard that repairs collapsed single-line '| |' or stub write_to_file overwrites."""
     if "pytest" in sys.modules or os.environ.get("BRAZIL_POWER_DISABLE_ARTIFACT_GUARD") == "1":
         return
     guard_code = (
-        "import pathlib, sys, time\n"
+        "import os, pathlib, sys, time\n"
+        f"sys.path.insert(0, {str(AGENT_SRC_DIR)!r})\n"
+        "from brazil_power_agent.excel_renderer import normalize_markdown_table\n"
         "fname = sys.argv[1]\n"
         "cpath = pathlib.Path(sys.argv[2])\n"
         "broot = pathlib.Path.home() / '.gemini' / 'jetski' / 'brain'\n"
-        "for _ in range(360):\n"
+        "pid_file = broot / f'.guard_{fname}.pid'\n"
+        "my_pid = str(os.getpid())\n"
+        "try:\n"
+        "    broot.mkdir(parents=True, exist_ok=True)\n"
+        "    pid_file.write_text(my_pid, encoding='utf-8')\n"
+        "except Exception:\n"
+        "    pass\n"
+        "for _ in range(3000):\n"
         "    try:\n"
+        "        if pid_file.is_file() and pid_file.read_text(encoding='utf-8').strip() != my_pid:\n"
+        "            break\n"
         "        if not cpath.is_file() or not broot.is_dir():\n"
-        "            time.sleep(0.25); continue\n"
+        "            time.sleep(0.2); continue\n"
         "        good = cpath.read_text(encoding='utf-8')\n"
         "        for d in broot.iterdir():\n"
         "            if not d.is_dir() or d.name.startswith('.'):\n"
@@ -304,11 +315,17 @@ def _spawn_brain_artifact_guard(artifact_filename: str, canonical_path: Path) ->
         "            f = d / fname\n"
         "            if f.is_file():\n"
         "                cur = f.read_text(encoding='utf-8')\n"
-        "                if cur != good and ('| |' in cur or 'R$' in cur or 'US$' in cur or len(cur) < len(good) * 0.85):\n"
+        "                if cur != good and ('| |' in cur or 'R$' in cur or 'US$' in cur or len(cur) < len(good) * 0.90):\n"
         "                    f.write_text(good, encoding='utf-8')\n"
+        "            for md_file in d.glob('*.md'):\n"
+        "                raw = md_file.read_text(encoding='utf-8')\n"
+        "                if '| |' in raw or 'R$' in raw or 'US$' in raw:\n"
+        "                    fixed = normalize_markdown_table(raw)\n"
+        "                    if fixed != raw:\n"
+        "                        md_file.write_text(fixed, encoding='utf-8')\n"
         "    except Exception:\n"
         "        pass\n"
-        "    time.sleep(0.25)\n"
+        "    time.sleep(0.2)\n"
     )
     try:
         subprocess.Popen(
@@ -574,6 +591,72 @@ def build_compact_llm_payload(
     return compact
 
 
+def format_multiline_llm_report(
+    tool_name: str,
+    payload: dict[str, Any],
+    include_artifact_markdown: bool = True,
+) -> str:
+    """Format tool output as real multi-line Markdown with physical line breaks (never single-line JSON-escaped \\n)."""
+    lines: list[str] = [
+        f"## Brazil Power v13 MCP Result: `{tool_name}`",
+    ]
+    if payload.get("artifact_file_path"):
+        lines.append(f"- **Artifact File Path (`TargetFile`)**: `{payload['artifact_file_path']}`")
+    if payload.get("artifact_file_uri"):
+        lines.append(f"- **Artifact File URI**: `{payload['artifact_file_uri']}`")
+
+    meta_skip = {
+        "inline_markdown",
+        "inline_excel_table_md",
+        "artifact_markdown",
+        "full_artifact_table_md",
+        "echarts_option",
+        "echarts_spec",
+        "cvu_sweep_echarts_option",
+        "artifact_file_path",
+        "artifact_file_uri",
+        "canonical_artifact_path",
+    } | set(_BULK_INTERNAL_KEYS)
+    meta_dict = {k: v for k, v in payload.items() if k not in meta_skip}
+    if meta_dict:
+        lines.append(f"- **Metadata**: `{json.dumps(meta_dict, ensure_ascii=False)}`")
+
+    inline_md = payload.get("inline_markdown")
+    if isinstance(inline_md, str) and inline_md.strip():
+        lines.append("")
+        lines.append("### Inline Markdown Table (Render directly in chat)")
+        lines.append("")
+        lines.append(normalize_markdown_table(inline_md))
+
+    echarts_opt = payload.get("echarts_option")
+    if isinstance(echarts_opt, dict) and echarts_opt:
+        lines.append("")
+        lines.append("### ECharts Option JSON (Pass to `render_chart`)")
+        lines.append("```json")
+        lines.append(json.dumps(echarts_opt, ensure_ascii=False))
+        lines.append("```")
+
+    cvu_echarts_opt = payload.get("cvu_sweep_echarts_option")
+    if isinstance(cvu_echarts_opt, dict) and cvu_echarts_opt:
+        lines.append("")
+        lines.append("### CVU Sweep ECharts Option JSON (Pass to `render_chart`)")
+        lines.append("```json")
+        lines.append(json.dumps(cvu_echarts_opt, ensure_ascii=False))
+        lines.append("```")
+
+    artifact_md = payload.get("artifact_markdown")
+    if include_artifact_markdown and isinstance(artifact_md, str) and artifact_md.strip():
+        lines.append("")
+        lines.append(
+            "### Full Multi-Line Artifact Markdown Replica "
+            "(Pre-saved at `Artifact File Path`; if calling `write_to_file`, copy with real physical newlines `\\n` after EVERY table row)"
+        )
+        lines.append("")
+        lines.append(normalize_markdown_table(artifact_md))
+
+    return "\n".join(lines) + "\n"
+
+
 def call_mcp_tool(
     name: str,
     arguments: dict[str, Any] | None = None,
@@ -648,6 +731,11 @@ def handle_jsonrpc_request(
             payload = call_mcp_tool(tool_name, arguments=arguments, session_mgr=session_mgr)
             compact_payload = build_compact_llm_payload(payload, omit_artifact_markdown=False)
             serialized = json.dumps(compact_payload, ensure_ascii=False)
+            multiline_report = format_multiline_llm_report(
+                tool_name,
+                compact_payload,
+                include_artifact_markdown=True,
+            )
             return {
                 "jsonrpc": "2.0",
                 "id": req_id,
@@ -655,8 +743,12 @@ def handle_jsonrpc_request(
                     "content": [
                         {
                             "type": "text",
+                            "text": multiline_report,
+                        },
+                        {
+                            "type": "text",
                             "text": serialized,
-                        }
+                        },
                     ],
                     "structuredContent": payload,
                     "isError": False,
@@ -779,7 +871,12 @@ def main() -> None:
     parser.add_argument(
         "--compact-llm",
         action="store_true",
-        help="Omit full artifact_markdown from stdout (already saved to artifact_file_path)",
+        help="Emit compact multi-line Markdown report without bulk internal arrays",
+    )
+    parser.add_argument(
+        "--json-only",
+        action="store_true",
+        help="Emit single-line JSON instead of multi-line Markdown report for --call",
     )
     parser.add_argument(
         "--seed-artifacts",
@@ -791,17 +888,17 @@ def main() -> None:
     if parsed_args.seed_artifacts:
         os.environ["BRAZIL_POWER_DISABLE_ARTIFACT_GUARD"] = "1"
         res = get_session_assumptions()
-        # Also normalize any existing brazil_v13_*.md files in ~/.gemini/jetski/brain/*/
         brain_root = Path.home() / ".gemini" / "jetski" / "brain"
         repaired: list[str] = []
         if brain_root.is_dir():
-            for md_file in brain_root.glob("*/brazil_v13_*.md"):
+            for md_file in brain_root.glob("*/*.md"):
                 try:
                     raw = md_file.read_text(encoding="utf-8")
-                    fixed = normalize_markdown_table(raw)
-                    if fixed != raw:
-                        md_file.write_text(fixed, encoding="utf-8")
-                        repaired.append(str(md_file))
+                    if "| |" in raw or "R$" in raw or "US$" in raw:
+                        fixed = normalize_markdown_table(raw)
+                        if fixed != raw:
+                            md_file.write_text(fixed, encoding="utf-8")
+                            repaired.append(str(md_file))
                 except OSError:
                     continue
         sys.stdout.write(
@@ -820,8 +917,17 @@ def main() -> None:
     if parsed_args.call:
         tool_args = json.loads(parsed_args.args) if parsed_args.args else {}
         full_res = call_mcp_tool(parsed_args.call, arguments=tool_args)
-        out_res = build_compact_llm_payload(full_res, omit_artifact_markdown=parsed_args.compact_llm)
-        sys.stdout.write(json.dumps(out_res, ensure_ascii=False) + "\n")
+        out_res = build_compact_llm_payload(full_res, omit_artifact_markdown=False)
+        if parsed_args.json_only:
+            sys.stdout.write(json.dumps(out_res, ensure_ascii=False) + "\n")
+        else:
+            sys.stdout.write(
+                format_multiline_llm_report(
+                    parsed_args.call,
+                    out_res,
+                    include_artifact_markdown=True,
+                )
+            )
         sys.stdout.flush()
         return
 

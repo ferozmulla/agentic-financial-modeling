@@ -103,28 +103,28 @@ Immediately present the **Analysis Selection Card** via `ask_question`:
 
 > [!TIP]
 > **FAST EXECUTION & MULTI-LINE TABLE ARTIFACT RULE**:
-> - Call the `brazil-power-mcp` MCP tool directly. *(If `brazil-power-mcp` is not in your active MCP tool list, do NOT search the filesystem; invoke `mcp_server.py --call <tool_name> --args '<json>' --compact-llm` directly in one command.)*
-> - Every `brazil-power-mcp` tool automatically writes the properly newline-formatted multi-line `full_artifact_table_md` Excel replica directly into your active conversation brain directory at `artifact_file_path` (`artifact_file_uri`) in `<1 ms` and runs an automatic file-guard.
-> - **NEVER paste or re-type a multi-column Markdown table inside `write_to_file`** (doing so wastes 30+ seconds and collapses row newlines into single-line `| |` pipes). If you call `write_to_file` to register/open the Artifact tab in the right-hand pane, pass `TargetFile=artifact_file_path` and a **1-line stub** `CodeContent="# Loading Excel Tab Replica..."` — the `brazil-power-mcp` file-guard automatically populates the file on disk with the complete multi-line Markdown table within `0.25s`.
+> - Call the `brazil-power-mcp` MCP tool directly (or via the pre-resolved `--call <tool_name> --args '<json>' --compact-llm` command at the top of this skill without searching the filesystem).
+> - Every `brazil-power-mcp` tool outputs **real multi-line Markdown tables** (with physical `\n` line breaks after every `| ... |` row) and pre-saves the full Excel replica to `artifact_file_path` (`artifact_file_uri`).
+> - When calling `write_to_file` (`TargetFile=artifact_file_path`, `UserFacing=true`) to open the side-pane **Artifact** tab, you **MUST preserve the exact multi-line Markdown formatting with a real newline (`\n`) at the end of every single `| ... |` table row** — **NEVER** collapse multiple rows onto one line separated by `| |`.
 
 For each selected analysis workflow, execute the corresponding `brazil-power-mcp` tool and adhere strictly to the **Dual Inline + Artifact Rendering Standard**:
 
 1. **Tornado IRR Sensitivity** (`run_tornado_sensitivity`):
    - Render `inline_markdown` (`inline_excel_table_md`: `_0N_CF!A4:H12` 21-point IRR sensitivity grid + `Output_1` summary) inline in chat.
    - Call `render_chart` (`mcp_data-agent-kit_render_chart`) with `echarts_option` (`echarts_spec`) to render the horizontal Tornado bar chart inline.
-   - Link to the pre-saved side-pane **Artifact** at `artifact_file_uri` (if opening via `write_to_file`, target `artifact_file_path` with a 1-line stub so the auto-saved multi-line table is preserved).
+   - Open/link the side-pane **Artifact** at `artifact_file_path` (`artifact_file_uri`), preserving every row newline (`\n`) in the Markdown table.
 2. **23-Year Multi-Tech LCOE Forecast** (`run_lcoe_horizon_forecast`):
    - Render `inline_markdown` (`inline_excel_table_md`: compact milestone table `2024, 2025, 2030, 2035, 2040, 2046` across `Output_3!B8:J31`) inline in chat.
    - Call `render_chart` with `echarts_option` (`echarts_spec`) to render the 23-year multi-technology LCOE trajectory line chart inline.
-   - Link to the pre-saved 23-row × 9-column `Output_3!B8:J31` **Artifact** at `artifact_file_uri` (including Legacy Quirk 7 blank `Col D` in `strict_legacy_vba` mode).
+   - Open/link the 23-row × 9-column `Output_3!B8:J31` **Artifact** at `artifact_file_path` (`artifact_file_uri`), preserving every row newline (`\n`).
 3. **BigQuery ML `ARIMA_PLUS` Time-Series Refresh** (`run_bqml_timeseries_refresh`):
    - Render `inline_markdown` (`inline_excel_table_md`: milestone normalized index summary across `LT Capex!B8:J30`, `LT Fuel!B8:J30`, `LT CF!B8:J30`) inline in chat.
    - Call `render_chart` with `echarts_option` (`echarts_spec`) to render the 23-year BQML trajectory chart inline.
-   - Link to the pre-saved 23-row `LT Capex`, `LT Fuel`, and `LT CF` **Artifact** at `artifact_file_uri`.
+   - Open/link the 23-row `LT Capex`, `LT Fuel`, and `LT CF` **Artifact** at `artifact_file_path` (`artifact_file_uri`), preserving every row newline (`\n`).
 4. **30-Year Project & Shareholder DCF + Thermal CVU Sweep** (`run_dcf_cashflow_analysis`):
    - Render `inline_markdown` (`inline_excel_table_md`: executive valuation header `_0N_CF!B2:H14` + milestone years `2024, 2025, 2026, 2027, 2028, 2030, 2035, 2040, 2045, 2050, 2053` + `CVU_GF` 10-point table when `include_cvu_gf_sweep=True`) inline in chat.
    - Call `render_chart` with `echarts_option` (`echarts_spec`, and `cvu_sweep_echarts_option` if a CVU sweep was run) to render the 30-year Free Cash Flow & Cumulative NPV stacked bar/line visual inline.
-   - Link to the pre-saved 30-column `Col K..Col AN` × Rows `33–101` horizontal `_0N_CF` DCF **Artifact** at `artifact_file_uri`.
+   - Open/link the 30-column `Col K..Col AN` × Rows `33–101` horizontal `_0N_CF` DCF **Artifact** at `artifact_file_path` (`artifact_file_uri`), preserving every row newline (`\n`).
 5. **1-Click 22-Tab `.xlsx` or Google Sheets Deliverable Export** (`export_full_22tab_workbook`):
    - At the conclusion of the analysis turn (or whenever requested), offer or invoke `export_full_22tab_workbook(export_format="xlsx" | "google_sheets" | "both")`.
    - Confirm that all 22 original worksheets (`Version Control`, `General`, `Output_1`, `Output_2`, `Output_3`, `_01_CF` .. `_12_CF`, `_CAPEX 01`, `CVU_GF`, `LT Capex`, `LT Fuel`, `LT CF`) are preserved with 100% of original Excel formulas, number formats, styles, and all staged overrides/solved outputs written to their exact cell coordinates, and provide the clickable `[filename.xlsx](file:///...)` link or live Google Sheets URL.
