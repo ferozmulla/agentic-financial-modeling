@@ -24,7 +24,8 @@ from brazil_power_agent.install_customizations import (
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Install or verify Brazil Power v13 Gemini App skills and brazil-power-mcp configuration."
+        description="Install or verify Brazil Power v13 Gemini App skills and brazil-power-mcp configuration.",
+        allow_abbrev=False,
     )
     parser.add_argument(
         "--target",
@@ -32,6 +33,11 @@ def main(argv: list[str] | None = None) -> int:
         dest="config_dir",
         default=None,
         help="Target Gemini configuration directory (e.g. ~/.gemini/config). Defaults to auto-resolved config dir.",
+    )
+    parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="Install (overwrite) and verify skills and MCP configuration.",
     )
     parser.add_argument(
         "--verify-only",
