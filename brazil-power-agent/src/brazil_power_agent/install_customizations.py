@@ -41,6 +41,8 @@ def build_mcp_server_config_entry(repo_root: str | Path | None = None) -> dict[s
         "args": [str(server_script)],
         "env": {
             "PYTHONPATH": f"{agent_src}:{v13_dir}",
+            "BRAZIL_POWER_CLOUD_AGENT_URL": "https://sheets-commodity-mod-gateway-1024543888590.us-central1.run.app",
+            "BRAZIL_POWER_CLOUD_BACKEND": "true",
         },
     }
 

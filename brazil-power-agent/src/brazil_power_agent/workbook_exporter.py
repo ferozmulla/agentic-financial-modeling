@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import logging
+import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -9,17 +12,40 @@ import openpyxl
 from openpyxl.cell.cell import MergedCell
 
 from brazil_power_agent.session_store import (
+    DEFAULT_GCS_ARTIFACT_BUCKET,
     DEFAULT_SEED_WORKBOOK_PATH,
     BrazilPowerSessionManager,
+    _is_cloud_backend_enabled,
     col_letter_to_index,
     index_to_col_letter,
     split_coord,
 )
 
+logger = logging.getLogger(__name__)
+
 GOLDEN_GOOGLE_SHEET_ID = "1apbos5xVpK4yBLiRFxQqAEyPVNkkYQ2ZvgAASibYYJI"
-DEFAULT_EXPORT_DIR = Path.home() / ".gemini" / "jetski" / "exports"
+DEFAULT_EXPORT_DIR = (
+    Path("/tmp/brazil_power_exports")
+    if os.environ.get("K_SERVICE") or os.environ.get("ENV", "").lower() == "gcp"
+    else Path.home() / ".gemini" / "jetski" / "exports"
+)
 DEFAULT_XLSX_FILENAME = "Brazil_TT_v13_Scenario_Export.xlsx"
 DEFAULT_SHEET_TITLE = "Brazil Power v13 — Gemini Scenario Export (22 Tabs)"
+DEFAULT_CLOUD_GATEWAY_URL = os.environ.get(
+    "BRAZIL_POWER_CLOUD_AGENT_URL",
+    "https://sheets-commodity-mod-gateway-1024543888590.us-central1.run.app",
+).rstrip("/")
+_SAFE_EXPORT_FILENAME_RE = re.compile(r"^[A-Za-z0-9_.\-]+$")
+
+
+def sanitize_export_filename(filename: str | None) -> str:
+    """Validate and sanitize an export filename to prevent path traversal."""
+    raw = os.path.basename((filename or DEFAULT_XLSX_FILENAME).strip())
+    if not raw.lower().endswith(".xlsx"):
+        raw = f"{raw}.xlsx"
+    if not _SAFE_EXPORT_FILENAME_RE.match(raw) or ".." in raw:
+        raise ValueError(f"Invalid export filename '{filename}'. Only alphanumeric, '_', '-', and '.' are permitted.")
+    return raw
 
 EXPECTED_22_TABS: tuple[str, ...] = (
     "Version Control",
@@ -270,6 +296,56 @@ def _export_to_google_sheets(
     }
 
 
+def _upload_xlsx_to_gcs(
+    local_xlsx_path: Path,
+    safe_filename: str,
+    session_mgr: BrazilPowerSessionManager,
+    total_cells: int,
+) -> dict[str, Any]:
+    """Upload the 22-tab .xlsx export to GCS and archive a governance snapshot when Cloud backend is enabled."""
+    cloud_meta: dict[str, Any] = {
+        "gcs_xlsx_uri": None,
+        "cloud_download_url": None,
+        "gcs_snapshot_uri": None,
+    }
+    if not _is_cloud_backend_enabled():
+        return cloud_meta
+
+    bucket_name = getattr(session_mgr, "_gcs_bucket_name", DEFAULT_GCS_ARTIFACT_BUCKET)
+    blob_key = f"agent_exports/{safe_filename}"
+    try:
+        from google.cloud import storage
+
+        client = storage.Client()
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(blob_key)
+        blob.upload_from_filename(
+            str(local_xlsx_path),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        cloud_meta["gcs_xlsx_uri"] = f"gs://{bucket_name}/{blob_key}"
+        cloud_meta["cloud_download_url"] = f"{DEFAULT_CLOUD_GATEWAY_URL}/v1/agent/exports/{safe_filename}"
+    except Exception as exc:
+        logger.warning("Failed to upload .xlsx export to GCS gs://%s/%s: %s", bucket_name, blob_key, exc)
+
+    try:
+        from src.governance.gcs_snapshot_store import GCSSnapshotStore
+
+        snap_store = GCSSnapshotStore()
+        snap_meta = snap_store.archive_workbook_snapshot(
+            file_bytes=local_xlsx_path.read_bytes(),
+            workbook_id="brazil_power_v13_gemini_agent",
+            version_tag=safe_filename.replace(".xlsx", ""),
+            author="gemini-cloud-agent",
+            extra_metadata={"applied_cell_count": str(total_cells)},
+        )
+        cloud_meta["gcs_snapshot_uri"] = snap_meta.get("gcs_uri")
+    except Exception as exc:
+        logger.debug("Optional GCSSnapshotStore archival skipped: %s", exc)
+
+    return cloud_meta
+
+
 def export_full_22tab_workbook(
     session_mgr: BrazilPowerSessionManager | None = None,
     export_format: str = "xlsx",
@@ -306,6 +382,9 @@ def export_full_22tab_workbook(
     result: dict[str, Any] = {
         "export_format": fmt,
         "xlsx_path": None,
+        "gcs_xlsx_uri": None,
+        "cloud_download_url": None,
+        "gcs_snapshot_uri": None,
         "spreadsheet_id": None,
         "spreadsheet_url": None,
         "golden_sheet_id": golden_sheet_id,
@@ -328,17 +407,27 @@ def export_full_22tab_workbook(
 
     if do_xlsx:
         resolved_dir = Path(output_dir) if output_dir is not None else DEFAULT_EXPORT_DIR
-        resolved_name = filename or DEFAULT_XLSX_FILENAME
-        if not resolved_name.lower().endswith(".xlsx"):
-            resolved_name = f"{resolved_name}.xlsx"
+        resolved_name = sanitize_export_filename(filename)
+        local_out_path = resolved_dir / resolved_name
         xlsx_info = _export_to_xlsx(
             seed_workbook_path=seed_path,
-            output_path=resolved_dir / resolved_name,
+            output_path=local_out_path,
             writes_by_sheet=writes_by_sheet,
         )
         result.update(xlsx_info)
         result["tabs_preserved"] = xlsx_info["sheet_count"]
         summary_lines.append(f"- **Excel (`.xlsx`) File**: `{result['xlsx_path']}`")
+        cloud_meta = _upload_xlsx_to_gcs(
+            local_xlsx_path=local_out_path,
+            safe_filename=resolved_name,
+            session_mgr=mgr,
+            total_cells=total_cells,
+        )
+        result.update(cloud_meta)
+        if result.get("cloud_download_url"):
+            summary_lines.append(
+                f"- **Cloud Download URL (22-Tab `.xlsx`)**: [{resolved_name}]({result['cloud_download_url']}) (`{result['gcs_xlsx_uri']}`)"
+            )
 
     if do_gsheets:
         gs_info = _export_to_google_sheets(
@@ -351,6 +440,19 @@ def export_full_22tab_workbook(
         result.update(gs_info)
         summary_lines.append(
             f"- **Cloned Google Sheet**: [{result['sheet_title']}]({result['spreadsheet_url']}) (`{result['spreadsheet_id']}`)"
+        )
+
+    if hasattr(mgr, "_emit_cloud_audit_events"):
+        mgr._emit_cloud_audit_events(
+            [
+                {
+                    "sheet_name": "Version Control",
+                    "cell_coordinates": "A1:J22",
+                    "old_value": "seed_v13",
+                    "new_value": result.get("cloud_download_url") or result.get("spreadsheet_url") or str(result.get("xlsx_path")),
+                    "why_justification": f"Gemini Agent 22-Tab Workbook Export ({fmt}, {total_cells} modified/solved cells)",
+                }
+            ]
         )
 
     result["summary_md"] = "\n".join(summary_lines)

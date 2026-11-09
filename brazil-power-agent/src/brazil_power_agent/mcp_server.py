@@ -3,14 +3,20 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
+import re
 import subprocess
 import sys
+import urllib.request
 from pathlib import Path
 from typing import Any, BinaryIO, Callable
 
+logger = logging.getLogger(__name__)
+
 WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
-V13_ROOT = WORKSPACE_ROOT / "brazil-power-v13"
+_CANDIDATE_V13_ROOT = WORKSPACE_ROOT / "brazil-power-v13"
+V13_ROOT = _CANDIDATE_V13_ROOT if _CANDIDATE_V13_ROOT.is_dir() else Path(__file__).resolve().parents[2]
 AGENT_SRC_ROOT = Path(__file__).resolve().parents[1]
 
 for _p in (str(AGENT_SRC_ROOT), str(V13_ROOT)):
@@ -19,10 +25,13 @@ for _p in (str(AGENT_SRC_ROOT), str(V13_ROOT)):
 
 from brazil_power_agent.excel_renderer import normalize_markdown_table
 from brazil_power_agent.session_store import (
+    DEFAULT_GCS_ARTIFACT_BUCKET,
     BrazilPowerSessionManager,
+    _is_cloud_backend_enabled,
     normalize_technology_code,
 )
 from brazil_power_agent.workbook_exporter import (
+    DEFAULT_CLOUD_GATEWAY_URL,
     GOLDEN_GOOGLE_SHEET_ID,
     export_full_22tab_workbook as _export_workbook,
 )
@@ -30,6 +39,23 @@ from brazil_power_agent.workbook_exporter import (
 MCP_SERVER_NAME = "brazil-power-mcp"
 MCP_SERVER_VERSION = "1.0.0"
 MCP_PROTOCOL_VERSION = "2024-11-05"
+_SAFE_ARTIFACT_FILENAME_RE = re.compile(r"^[A-Za-z0-9_.\-]+\.md$")
+
+TOOL_ARTIFACT_FILENAMES: dict[str, str] = {
+    "get_session_assumptions": "brazil_v13_general_assumptions.md",
+    "update_session_assumptions": "brazil_v13_general_assumptions.md",
+    "run_bqml_timeseries_refresh": "brazil_v13_bqml_lt_trajectories.md",
+    "run_lcoe_horizon_forecast": "brazil_v13_output3_lcoe_horizon.md",
+    "export_full_22tab_workbook": "brazil_v13_export_summary.md",
+}
+
+
+def sanitize_artifact_filename(artifact_filename: str) -> str:
+    """Validate and sanitize a Markdown artifact filename against path traversal."""
+    base = os.path.basename(artifact_filename.strip())
+    if not _SAFE_ARTIFACT_FILENAME_RE.match(base) or ".." in base:
+        raise ValueError(f"Invalid artifact filename '{artifact_filename}'.")
+    return base
 
 TECHNOLOGY_ENUM = [
     "_01_CF",
@@ -345,32 +371,56 @@ def _spawn_brain_artifact_guard(artifact_filename: str, canonical_path: Path) ->
 
 
 def _persist_artifact_markdown(artifact_filename: str, markdown_text: str) -> dict[str, str]:
-    """Write wide Excel-tab replica Markdown directly to disk and sync to active brain conversation folders."""
+    """Write wide Excel-tab replica Markdown directly to disk, sync to brain folders, and upload to GCS when in Cloud."""
+    safe_filename = sanitize_artifact_filename(artifact_filename)
     clean_md = normalize_markdown_table(markdown_text)
     custom_dir = os.environ.get("BRAZIL_POWER_ARTIFACT_DIR")
-    export_root = Path(custom_dir) if custom_dir else (Path.home() / ".gemini" / "jetski" / "artifacts")
+    if custom_dir:
+        export_root = Path(custom_dir)
+    elif os.environ.get("K_SERVICE") or os.environ.get("ENV", "").lower() == "gcp":
+        export_root = Path("/tmp/brazil_power_artifacts")
+    else:
+        export_root = Path.home() / ".gemini" / "jetski" / "artifacts"
     export_root.mkdir(parents=True, exist_ok=True)
-    canonical_path = (export_root / artifact_filename).resolve()
+    canonical_path = (export_root / safe_filename).resolve()
     canonical_path.write_text(clean_md, encoding="utf-8")
 
     primary_path = canonical_path
-    if not custom_dir and "pytest" not in sys.modules:
-        brain_dirs = _discover_active_brain_dirs(artifact_filename)
+    is_cloud_env = bool(os.environ.get("K_SERVICE") or os.environ.get("ENV", "").lower() == "gcp")
+    if not custom_dir and not is_cloud_env and "pytest" not in sys.modules:
+        brain_dirs = _discover_active_brain_dirs(safe_filename)
         for idx, bdir in enumerate(brain_dirs):
             try:
-                btarget = (bdir / artifact_filename).resolve()
+                btarget = (bdir / safe_filename).resolve()
                 btarget.write_text(clean_md, encoding="utf-8")
                 if idx == 0:
                     primary_path = btarget
             except OSError:
                 continue
-        _spawn_brain_artifact_guard(artifact_filename, canonical_path)
+        _spawn_brain_artifact_guard(safe_filename, canonical_path)
 
-    return {
+    persisted_info: dict[str, str] = {
         "artifact_file_path": str(primary_path),
         "artifact_file_uri": primary_path.as_uri(),
         "canonical_artifact_path": str(canonical_path),
     }
+
+    if _is_cloud_backend_enabled():
+        bucket_name = os.environ.get("GCS_ARTIFACT_BUCKET", DEFAULT_GCS_ARTIFACT_BUCKET).strip()
+        blob_key = f"agent_artifacts/{safe_filename}"
+        try:
+            from google.cloud import storage
+
+            client = storage.Client()
+            bucket = client.bucket(bucket_name)
+            blob = bucket.blob(blob_key)
+            blob.upload_from_string(clean_md, content_type="text/markdown; charset=utf-8")
+            persisted_info["gcs_artifact_uri"] = f"gs://{bucket_name}/{blob_key}"
+            persisted_info["cloud_artifact_url"] = f"{DEFAULT_CLOUD_GATEWAY_URL}/v1/agent/artifacts/{safe_filename}"
+        except Exception as exc:
+            logger.warning("Failed to upload artifact Markdown to GCS gs://%s/%s: %s", bucket_name, blob_key, exc)
+
+    return persisted_info
 
 
 def _attach_artifact_and_aliases(
@@ -665,6 +715,63 @@ def format_multiline_llm_report(
     return "\n".join(lines) + "\n"
 
 
+def _resolve_artifact_filename_for_tool(name: str, arguments: dict[str, Any] | None, payload: dict[str, Any]) -> str:
+    """Resolve the canonical Markdown artifact filename for a tool response."""
+    if name in TOOL_ARTIFACT_FILENAMES:
+        return TOOL_ARTIFACT_FILENAMES[name]
+    args = arguments or {}
+    tech = str(payload.get("technology_code") or args.get("technology_code") or "_01_CF").lower()
+    if name == "run_tornado_sensitivity":
+        return f"brazil_v13_tornado_{tech}.md"
+    if name == "run_dcf_cashflow_analysis":
+        return f"brazil_v13_dcf_30yr_{tech}.md"
+    return "brazil_v13_general_assumptions.md"
+
+
+def _call_remote_cloud_mcp_tool(
+    name: str,
+    arguments: dict[str, Any] | None = None,
+    cloud_url: str | None = None,
+) -> dict[str, Any] | None:
+    """Forward MCP tool execution to the Cloud Run service and locally materialize the side-pane Artifact."""
+    base_url = (cloud_url or os.environ.get("BRAZIL_POWER_CLOUD_AGENT_URL", "")).strip().rstrip("/")
+    if not base_url:
+        return None
+    endpoint = f"{base_url}/v1/agent/tools/{name}"
+    req_body = json.dumps({"arguments": dict(arguments or {})}).encode("utf-8")
+    req = urllib.request.Request(
+        endpoint,
+        data=req_body,
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=90.0) as resp:
+            raw_bytes = resp.read()
+            payload = json.loads(raw_bytes.decode("utf-8"))
+            if isinstance(payload, dict) and payload.get("result"):
+                payload = payload["result"]
+            if isinstance(payload, dict):
+                artifact_md = payload.get("full_artifact_table_md") or payload.get("artifact_markdown") or ""
+                if isinstance(artifact_md, str) and artifact_md.strip():
+                    fname = _resolve_artifact_filename_for_tool(name, arguments, payload)
+                    persisted = _persist_artifact_markdown(fname, artifact_md)
+                    # Preserve cloud URLs returned by Cloud Run while updating local artifact_file_path
+                    cloud_art_url = payload.get("cloud_artifact_url") or persisted.get("cloud_artifact_url")
+                    gcs_art_uri = payload.get("gcs_artifact_uri") or persisted.get("gcs_artifact_uri")
+                    payload.update(persisted)
+                    if cloud_art_url:
+                        payload["cloud_artifact_url"] = cloud_art_url
+                    if gcs_art_uri:
+                        payload["gcs_artifact_uri"] = gcs_art_uri
+                payload["execution_backend"] = "cloud_run_remote"
+                payload["cloud_gateway_url"] = base_url
+                return payload
+    except Exception as exc:
+        logger.warning("Remote Cloud Run MCP call to %s failed, falling back to local execution: %s", endpoint, exc)
+    return None
+
+
 def call_mcp_tool(
     name: str,
     arguments: dict[str, Any] | None = None,
@@ -674,6 +781,24 @@ def call_mcp_tool(
     if name not in TOOL_HANDLERS:
         raise ValueError(f"Unknown MCP tool '{name}'. Available tools: {sorted(TOOL_HANDLERS.keys())}")
     kwargs = dict(arguments or {})
+
+    # When BRAZIL_POWER_CLOUD_AGENT_URL is set and we are not inside Cloud Run or unit tests,
+    # execute the tool on Google Cloud Run and locally materialize the side-pane artifact.
+    cloud_url = os.environ.get("BRAZIL_POWER_CLOUD_AGENT_URL", "").strip()
+    local_override = os.environ.get("BRAZIL_POWER_LOCAL_EXECUTION", "").strip().lower() in ("1", "true", "yes")
+    is_cloud_container = bool(os.environ.get("K_SERVICE"))
+    if (
+        cloud_url
+        and not local_override
+        and not is_cloud_container
+        and "pytest" not in sys.modules
+        and session_mgr is None
+        and "session_path" not in kwargs
+    ):
+        remote_res = _call_remote_cloud_mcp_tool(name=name, arguments=kwargs, cloud_url=cloud_url)
+        if remote_res is not None:
+            return remote_res
+
     if session_mgr is not None:
         kwargs["session_mgr"] = session_mgr
     return TOOL_HANDLERS[name](**kwargs)
@@ -869,6 +994,8 @@ def build_mcp_server_config_entry(repo_root: str | Path | None = None) -> dict[s
         "args": [str(server_script)],
         "env": {
             "PYTHONPATH": f"{agent_src}:{v13_dir}",
+            "BRAZIL_POWER_CLOUD_AGENT_URL": DEFAULT_CLOUD_GATEWAY_URL,
+            "BRAZIL_POWER_CLOUD_BACKEND": "true",
         },
     }
 

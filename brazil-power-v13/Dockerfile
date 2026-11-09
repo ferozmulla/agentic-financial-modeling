@@ -4,6 +4,8 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app:/app/src \
+    BRAZIL_POWER_CLOUD_BACKEND=true \
     PORT=8080
 
 COPY requirements.txt .
@@ -14,9 +16,9 @@ COPY data/fixtures/ ./data/fixtures/
 COPY migrations/ ./migrations/
 COPY src/ ./src/
 
-RUN mkdir -p /tmp/data/snapshots /tmp/data/bigquery_sink && \
+RUN mkdir -p /tmp/data/snapshots /tmp/data/bigquery_sink /tmp/brazil_power_exports /tmp/brazil_power_artifacts /tmp/brazil_power_sessions && \
     useradd --create-home --shell /bin/bash appuser && \
-    chown -R appuser:appuser /app /tmp/data
+    chown -R appuser:appuser /app /tmp/data /tmp/brazil_power_exports /tmp/brazil_power_artifacts /tmp/brazil_power_sessions
 USER appuser
 
 EXPOSE 8080
