@@ -1395,17 +1395,28 @@ body {
 
 .hbar-meta {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 10px;
   font-size: 12px;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.hbar-label {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.35;
 }
 
 .hbar-count {
   font-family: var(--font-mono);
   font-size: 11.5px;
   color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .hbar-track {
@@ -1524,21 +1535,36 @@ body {
   white-space: nowrap;
 }
 
-.lean-audit-table th.col-time { width: 138px; }
-.lean-audit-table th.col-wb   { width: 195px; }
-.lean-audit-table th.col-tab  { width: 120px; }
-.lean-audit-table th.col-cell { width: 85px; }
-.lean-audit-table th.col-type { width: 178px; }
-.lean-audit-table th.col-role { width: 118px; }
-.lean-audit-table th.col-sev  { width: 118px; }
+.lean-audit-table th.col-time { width: 136px; }
+.lean-audit-table th.col-wb   { width: 225px; }
+.lean-audit-table th.col-tab  { width: 140px; }
+.lean-audit-table th.col-cell { width: 78px; }
+.lean-audit-table th.col-type { width: 176px; }
+.lean-audit-table th.col-role { width: 116px; }
+.lean-audit-table th.col-sev  { width: 112px; }
 .lean-audit-table th.col-diff { width: auto; }
-.lean-audit-table th.col-user { width: 110px; }
+.lean-audit-table th.col-user { width: 105px; }
 
 .lean-audit-table tbody td {
   padding: 10px 12px;
   border-bottom: 1px solid #F2ECE6;
   color: var(--text-primary);
   vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.wb-cell {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.38;
+}
+
+.tab-cell {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.35;
 }
 
 .lean-audit-table tbody tr:last-child td {
@@ -1618,6 +1644,18 @@ GOVERNANCE_JS = """
   var caMessages = document.getElementById("caMessages");
   var caForm = document.getElementById("caForm");
   var caInput = document.getElementById("caInput");
+
+  function appendSoftWrapText(el, rawText) {
+    var str = String(rawText == null ? "" : rawText);
+    var parts = str.split("_");
+    for (var i = 0; i < parts.length; i++) {
+      var chunk = i < parts.length - 1 ? parts[i] + "_" : parts[i];
+      el.appendChild(document.createTextNode(chunk));
+      if (i < parts.length - 1) {
+        el.appendChild(document.createElement("wbr"));
+      }
+    }
+  }
 
   function formatUtcShort(isoStr) {
     if (!isoStr) return "—";
@@ -1744,7 +1782,8 @@ GOVERNANCE_JS = """
       var meta = document.createElement("div");
       meta.className = "hbar-meta";
       var spLabel = document.createElement("span");
-      spLabel.textContent = val;
+      spLabel.className = "hbar-label";
+      appendSoftWrapText(spLabel, val);
       var spCount = document.createElement("span");
       spCount.className = "hbar-count";
       spCount.textContent = String(cnt);
@@ -1791,7 +1830,8 @@ GOVERNANCE_JS = """
       var meta = document.createElement("div");
       meta.className = "hbar-meta";
       var spLabel = document.createElement("span");
-      spLabel.textContent = val;
+      spLabel.className = "hbar-label";
+      appendSoftWrapText(spLabel, val);
       var spCount = document.createElement("span");
       spCount.className = "hbar-count";
       spCount.textContent = item.critical_count + " crit / " + item.total_count + " total";
@@ -1874,10 +1914,14 @@ GOVERNANCE_JS = """
       tdTime.textContent = formatUtcShort(ev.event_time_utc);
 
       var tdWb = document.createElement("td");
-      tdWb.textContent = ev.workbook_name;
+      tdWb.className = "wb-cell";
+      tdWb.title = ev.workbook_name || "";
+      appendSoftWrapText(tdWb, ev.workbook_name);
 
       var tdTab = document.createElement("td");
-      tdTab.innerHTML = '<span class="mono-cell">' + ev.tab_name + "</span>";
+      tdTab.className = "tab-cell";
+      tdTab.title = ev.tab_name || "";
+      appendSoftWrapText(tdTab, ev.tab_name);
 
       var tdCell = document.createElement("td");
       tdCell.className = "mono-cell";
