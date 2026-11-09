@@ -442,8 +442,12 @@ async def handle_a2a_jsonrpc(request: Request) -> dict[str, Any]:
     }
 
 
+_ACTIVE_SSE_QUEUES: dict[str, asyncio.Queue[str | None]] = {}
+
+
 @router.post("/mcp", summary="Remote Streamable HTTP JSON-RPC 2.0 MCP Server")
 @router.post("/v1/mcp", summary="Remote Streamable HTTP JSON-RPC 2.0 MCP Server (v1)")
+@router.post("/mcp/sse", summary="Streamable HTTP Fallback on /mcp/sse")
 async def handle_remote_mcp_http(request: Request) -> Response:
     """Process JSON-RPC 2.0 MCP requests (`initialize`, `tools/list`, `tools/call`) over Streamable HTTP."""
     req_obj = await request.json()
@@ -459,12 +463,18 @@ async def handle_remote_mcp_http(request: Request) -> Response:
         return Response(
             content=json.dumps(responses, ensure_ascii=False),
             media_type="application/json",
-            headers={"X-Content-Type-Options": "nosniff"},
+            headers={
+                "Mcp-Session-Id": session_id,
+                "X-Content-Type-Options": "nosniff",
+            },
         )
 
     resp_obj = await asyncio.to_thread(handle_jsonrpc_request, req_obj, mgr)
     if resp_obj is None:
-        return Response(status_code=202)
+        return Response(
+            status_code=202,
+            headers={"Mcp-Session-Id": session_id, "X-Content-Type-Options": "nosniff"},
+        )
     return Response(
         content=json.dumps(resp_obj, ensure_ascii=False),
         media_type="application/json",
@@ -475,20 +485,41 @@ async def handle_remote_mcp_http(request: Request) -> Response:
     )
 
 
+@router.get("/mcp", summary="Remote MCP SSE Stream (Root /mcp GET)")
 @router.get("/mcp/sse", summary="Remote MCP Server-Sent Events (SSE) Endpoint")
 async def handle_remote_mcp_sse(request: Request) -> StreamingResponse:
-    """Provide MCP SSE transport discovery (`event: endpoint`) pointing to `/mcp/messages`."""
-    session_id = request.query_params.get("session_id") or str(uuid.uuid4())
+    """Provide full-duplex MCP SSE (`2024-11-05`) stream emitting `endpoint` and JSON-RPC `message` events."""
+    session_id = re.sub(r"[^A-Za-z0-9_\-]", "", (request.query_params.get("session_id") or str(uuid.uuid4())))
+    once = request.query_params.get("once") in ("1", "true")
+    queue: asyncio.Queue[str | None] = asyncio.Queue()
+    _ACTIVE_SSE_QUEUES[session_id] = queue
 
-    async def _event_Source():
-        yield f"event: endpoint\ndata: /mcp/messages?session_id={session_id}\n\n"
+    async def _event_source():
+        try:
+            yield f"event: endpoint\ndata: /mcp/messages?session_id={session_id}\n\n"
+            if once:
+                return
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    msg_str = await asyncio.wait_for(queue.get(), timeout=15.0)
+                    if msg_str is None:
+                        break
+                    yield f"event: message\ndata: {msg_str}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": keepalive\n\n"
+        finally:
+            if _ACTIVE_SSE_QUEUES.get(session_id) is queue:
+                _ACTIVE_SSE_QUEUES.pop(session_id, None)
 
     return StreamingResponse(
-        _event_Source(),
+        _event_source(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
             "X-Content-Type-Options": "nosniff",
         },
     )
@@ -496,8 +527,42 @@ async def handle_remote_mcp_sse(request: Request) -> StreamingResponse:
 
 @router.post("/mcp/messages", summary="Remote MCP SSE Message Posting Endpoint")
 async def handle_remote_mcp_messages(request: Request) -> Response:
-    """Process JSON-RPC 2.0 MCP messages posted by SSE clients."""
-    return await handle_remote_mcp_http(request)
+    """Process JSON-RPC 2.0 MCP messages posted by SSE clients and push responses onto the active SSE stream."""
+    session_id = request.query_params.get("session_id") or request.headers.get("mcp-session-id") or "default"
+    req_obj = await request.json()
+    mgr = _get_cloud_session_manager(session_id)
+    active_queue = _ACTIVE_SSE_QUEUES.get(session_id)
+
+    if isinstance(req_obj, list):
+        responses = []
+        for item in req_obj:
+            r = await asyncio.to_thread(handle_jsonrpc_request, item, mgr)
+            if r is not None:
+                responses.append(r)
+                if active_queue is not None:
+                    await active_queue.put(json.dumps(r, ensure_ascii=False))
+        if active_queue is not None:
+            return Response(content="Accepted", status_code=202, media_type="text/plain")
+        return Response(content=json.dumps(responses, ensure_ascii=False), media_type="application/json")
+
+    resp_obj = await asyncio.to_thread(handle_jsonrpc_request, req_obj, mgr)
+    if active_queue is not None:
+        if resp_obj is not None:
+            await active_queue.put(json.dumps(resp_obj, ensure_ascii=False))
+        return Response(
+            content="Accepted",
+            status_code=202,
+            media_type="text/plain",
+            headers={"X-Content-Type-Options": "nosniff"},
+        )
+
+    if resp_obj is None:
+        return Response(status_code=202)
+    return Response(
+        content=json.dumps(resp_obj, ensure_ascii=False),
+        media_type="application/json",
+        headers={"X-Content-Type-Options": "nosniff"},
+    )
 
 
 @router.get("/v1/agent/tools", summary="List Available Brazil Power v13 Cloud MCP Tools")

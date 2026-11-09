@@ -44,12 +44,27 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Only verify existing skills and MCP configuration without copying files.",
     )
+    parser.add_argument(
+        "--remote-sse",
+        action="store_true",
+        help="Configure brazil-power-mcp in mcp_config.json using remote Cloud Run serverUrl (/mcp/sse) with zero local Python process.",
+    )
+    parser.add_argument(
+        "--server-url",
+        default=None,
+        help="Optional custom remote MCP SSE URL when --remote-sse is used.",
+    )
     args = parser.parse_args(argv)
 
     if args.verify_only:
         status = verify_skills_and_mcp_installed(config_dir=args.config_dir, repo_root=REPO_ROOT)
     else:
-        status = install_skills_and_mcp(config_dir=args.config_dir, repo_root=REPO_ROOT)
+        status = install_skills_and_mcp(
+            config_dir=args.config_dir,
+            repo_root=REPO_ROOT,
+            remote_sse=args.remote_sse,
+            server_url=args.server_url,
+        )
 
     print(json.dumps(status, indent=2, ensure_ascii=False))
     return 0 if status.get("all_valid") else 1

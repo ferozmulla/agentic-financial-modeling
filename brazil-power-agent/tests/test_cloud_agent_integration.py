@@ -117,3 +117,49 @@ def test_rest_tool_invocation_and_download_security(tmp_path: Path, monkeypatch)
 
     bad_exp = client.get("/v1/agent/exports/..%2Fsecret.xlsx")
     assert bad_exp.status_code in (400, 404)
+
+
+def test_remote_mcp_sse_and_messages_queue() -> None:
+    """Verify GET /mcp/sse?once=1 discovery and POST /mcp/messages queuing into _ACTIVE_SSE_QUEUES."""
+    import asyncio
+    import json
+    from src.api.routes.agent_cloud import _ACTIVE_SSE_QUEUES
+
+    client = TestClient(create_app())
+    sse_resp = client.get("/mcp/sse?session_id=sse_test_1&once=1")
+    assert sse_resp.status_code == 200
+    assert "event: endpoint" in sse_resp.text
+    assert "/mcp/messages?session_id=sse_test_1" in sse_resp.text
+
+    # Simulate an active SSE queue for sse_test_2 and verify POST /mcp/messages pushes JSON-RPC frame
+    q: asyncio.Queue[str | None] = asyncio.Queue()
+    _ACTIVE_SSE_QUEUES["sse_test_2"] = q
+    try:
+        msg_resp = client.post(
+            "/mcp/messages?session_id=sse_test_2",
+            json={"jsonrpc": "2.0", "id": 99, "method": "tools/list", "params": {}},
+        )
+        assert msg_resp.status_code == 202
+        queued_str = q.get_nowait()
+        assert queued_str is not None
+        queued_obj = json.loads(queued_str)
+        assert queued_obj["id"] == 99
+        assert len(queued_obj["result"]["tools"]) == 7
+    finally:
+        _ACTIVE_SSE_QUEUES.pop("sse_test_2", None)
+
+
+def test_install_remote_sse_mcp_config(tmp_path: Path) -> None:
+    """Verify install_skills_and_mcp(..., remote_sse=True) writes serverUrl without requiring local Python."""
+    import json
+    from brazil_power_agent.install_customizations import (
+        DEFAULT_REMOTE_MCP_SSE_URL,
+        install_skills_and_mcp,
+    )
+
+    status = install_skills_and_mcp(config_dir=tmp_path, remote_sse=True)
+    assert status["all_valid"] is True
+    assert status["mcp_registered"] is True
+    mcp_cfg = json.loads((tmp_path / "mcp_config.json").read_text(encoding="utf-8"))
+    assert mcp_cfg["mcpServers"]["brazil-power-mcp"] == {"serverUrl": DEFAULT_REMOTE_MCP_SSE_URL}
+

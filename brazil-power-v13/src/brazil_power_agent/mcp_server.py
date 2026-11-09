@@ -658,10 +658,26 @@ def format_multiline_llm_report(
     lines: list[str] = [
         f"## Brazil Power v13 MCP Result: `{tool_name}`",
     ]
-    if payload.get("artifact_file_path"):
-        lines.append(f"- **Artifact File Path (`TargetFile`)**: `{payload['artifact_file_path']}`")
-    if payload.get("artifact_file_uri"):
-        lines.append(f"- **Artifact File URI**: `{payload['artifact_file_uri']}`")
+    raw_art_path = str(payload.get("artifact_file_path") or "")
+    is_ephemeral_cloud_path = raw_art_path.startswith("/tmp/") or raw_art_path.startswith("/private/tmp/")
+    if raw_art_path and is_ephemeral_cloud_path:
+        art_fname = Path(raw_art_path).name
+        lines.append(
+            f"- **Side-Pane Artifact Filename**: `{art_fname}` "
+            f"(Call `write_to_file` with `TargetFile=\"<your_artifact_dir>/{art_fname}\"`, `Overwrite=true`, `UserFacing=true`)"
+        )
+    else:
+        if raw_art_path:
+            lines.append(f"- **Artifact File Path (`TargetFile`)**: `{raw_art_path}`")
+        if payload.get("artifact_file_uri"):
+            lines.append(f"- **Artifact File URI**: `{payload['artifact_file_uri']}`")
+
+    if payload.get("cloud_artifact_url"):
+        lines.append(f"- **Cloud Artifact URL**: {payload['cloud_artifact_url']}")
+    if payload.get("cloud_download_url"):
+        lines.append(f"- **Cloud 22-Tab `.xlsx` Download URL**: {payload['cloud_download_url']}")
+    if payload.get("spreadsheet_url"):
+        lines.append(f"- **Cloned 22-Tab Google Sheet URL**: {payload['spreadsheet_url']}")
 
     meta_skip = {
         "inline_markdown",
@@ -675,7 +691,12 @@ def format_multiline_llm_report(
         "artifact_file_uri",
         "canonical_artifact_path",
     } | set(_BULK_INTERNAL_KEYS)
-    meta_dict = {k: v for k, v in payload.items() if k not in meta_skip}
+    meta_dict = {
+        k: v
+        for k, v in payload.items()
+        if k not in meta_skip
+        and not (is_ephemeral_cloud_path and k in ("xlsx_path", "file_uri"))
+    }
     if meta_dict:
         lines.append(f"- **Metadata**: `{json.dumps(meta_dict, ensure_ascii=False)}`")
 
@@ -705,10 +726,16 @@ def format_multiline_llm_report(
     artifact_md = payload.get("artifact_markdown")
     if include_artifact_markdown and isinstance(artifact_md, str) and artifact_md.strip():
         lines.append("")
-        lines.append(
-            "### Full Multi-Line Artifact Markdown Replica "
-            "(Pre-saved at `Artifact File Path`; if calling `write_to_file`, copy with real physical newlines `\\n` after EVERY table row)"
-        )
+        if is_ephemeral_cloud_path:
+            lines.append(
+                "### Full Multi-Line Artifact Markdown Replica "
+                "(Write to `<your_artifact_dir>/<Side-Pane Artifact Filename>` via `write_to_file` with real physical newlines `\\n` after EVERY table row)"
+            )
+        else:
+            lines.append(
+                "### Full Multi-Line Artifact Markdown Replica "
+                "(Pre-saved at `Artifact File Path`; if calling `write_to_file`, copy with real physical newlines `\\n` after EVERY table row)"
+            )
         lines.append("")
         lines.append(normalize_markdown_table(artifact_md))
 

@@ -30,8 +30,20 @@ def resolve_preferred_python_executable(repo_root: str | Path | None = None) -> 
     return sys.executable or "python3"
 
 
-def build_mcp_server_config_entry(repo_root: str | Path | None = None) -> dict[str, Any]:
-    """Build the `~/.gemini/config/mcp_config.json` server entry for `brazil-power-mcp` using stdlib only."""
+DEFAULT_CLOUD_GATEWAY_URL = "https://sheets-commodity-mod-gateway-1024543888590.us-central1.run.app"
+DEFAULT_REMOTE_MCP_SSE_URL = f"{DEFAULT_CLOUD_GATEWAY_URL}/mcp/sse"
+
+
+def build_mcp_server_config_entry(
+    repo_root: str | Path | None = None,
+    remote_sse: bool = False,
+    server_url: str | None = None,
+) -> dict[str, Any]:
+    """Build the `~/.gemini/config/mcp_config.json` server entry for `brazil-power-mcp`."""
+    if remote_sse or server_url:
+        return {
+            "serverUrl": (server_url or DEFAULT_REMOTE_MCP_SSE_URL).strip(),
+        }
     root_path = Path(repo_root).resolve() if repo_root is not None else WORKSPACE_ROOT
     agent_src = root_path / "brazil-power-agent" / "src"
     v13_dir = root_path / "brazil-power-v13"
@@ -41,7 +53,7 @@ def build_mcp_server_config_entry(repo_root: str | Path | None = None) -> dict[s
         "args": [str(server_script)],
         "env": {
             "PYTHONPATH": f"{agent_src}:{v13_dir}",
-            "BRAZIL_POWER_CLOUD_AGENT_URL": "https://sheets-commodity-mod-gateway-1024543888590.us-central1.run.app",
+            "BRAZIL_POWER_CLOUD_AGENT_URL": DEFAULT_CLOUD_GATEWAY_URL,
             "BRAZIL_POWER_CLOUD_BACKEND": "true",
         },
     }
@@ -142,6 +154,8 @@ def _inject_resolved_cli_into_skill_md(raw_md: str, server_entry: dict[str, Any]
 def install_skills_and_mcp(
     config_dir: str | Path | None = None,
     repo_root: str | Path | None = None,
+    remote_sse: bool = False,
+    server_url: str | None = None,
 ) -> dict[str, Any]:
     """Copy the 5 Brazil Power v13 skills into `<config_dir>/skills/` and merge `brazil-power-mcp` into `mcp_config.json`."""
     root_path = _resolve_repo_root(repo_root)
@@ -151,8 +165,14 @@ def install_skills_and_mcp(
     target_skills_root = target_dir / "skills"
     target_skills_root.mkdir(parents=True, exist_ok=True)
 
-    server_entry = build_mcp_server_config_entry(repo_root=root_path)
-    server_entry.setdefault("env", {})["GEMINI_ENTERPRISE_APP_ID"] = "cb0f4566-dfad-496c-9b28-3542d86a5367"
+    stdio_fallback_entry = build_mcp_server_config_entry(repo_root=root_path, remote_sse=False)
+    server_entry = build_mcp_server_config_entry(
+        repo_root=root_path,
+        remote_sse=remote_sse,
+        server_url=server_url,
+    )
+    if "command" in server_entry:
+        server_entry.setdefault("env", {})["GEMINI_ENTERPRISE_APP_ID"] = "cb0f4566-dfad-496c-9b28-3542d86a5367"
 
     installed_skills: list[str] = []
     skill_paths: dict[str, str] = {}
@@ -177,7 +197,7 @@ def install_skills_and_mcp(
         dest_skill_md = dest_skill_dir / "SKILL.md"
         injected_md = _inject_resolved_cli_into_skill_md(
             dest_skill_md.read_text(encoding="utf-8"),
-            server_entry,
+            stdio_fallback_entry,
         )
         dest_skill_md.write_text(injected_md, encoding="utf-8")
 
@@ -233,7 +253,9 @@ def verify_skills_and_mcp_installed(
             if MCP_SERVER_NAME in mcp_servers:
                 mcp_entry = mcp_servers[MCP_SERVER_NAME]
                 args_joined = " ".join(str(a) for a in mcp_entry.get("args", []))
-                mcp_registered = bool(mcp_entry.get("command")) and "mcp_server.py" in args_joined
+                has_stdio = bool(mcp_entry.get("command")) and "mcp_server.py" in args_joined
+                has_remote_url = bool(str(mcp_entry.get("serverUrl") or "").startswith("https://"))
+                mcp_registered = has_stdio or has_remote_url
         except Exception:
             mcp_registered = False
 
