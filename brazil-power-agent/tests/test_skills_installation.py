@@ -81,10 +81,12 @@ def test_install_skills_and_mcp_to_custom_config_dir(tmp_path: Path) -> None:
         assert "PRE-RESOLVED FAST CLI COMMAND" in content
         assert "PYTHONPATH=" in content
 
-    # Verify Cause 2 sequential question flow is preserved in brazil-power-model/SKILL.md
+    # Verify Step 1 standalone write_to_file and sequential question flow in brazil-power-model/SKILL.md
     master_skill = (tmp_path / "skills" / "brazil-power-model" / "SKILL.md").read_text(encoding="utf-8")
-    assert "Step 2: Apply Any Assumption Overrides & Immediately Present Card 2" in master_skill
-    assert "Step 3: Card 2 — Sequential Interactive Analysis Selection Card (`ask_question`)" in master_skill
+    assert "Step 1 (Mandatory Standalone First Tool Call): Publish `brazil_v13_general_assumptions.md` via `write_to_file`" in master_skill
+    assert "Step 2 (Immediately After `write_to_file` Returns): Present Card 1 (`ask_question` — Questions `1/2` & `2/2`)" in master_skill
+    assert "Step 3: Apply Any Assumption Overrides & Refresh `brazil_v13_general_assumptions.md`" in master_skill
+    assert "Step 4: Card 2 — Interactive Quantitative Analysis Selection Card (`ask_question`)" in master_skill
 
     status = verify_skills_and_mcp_installed(config_dir=tmp_path)
     assert status["mcp_registered"] is True
