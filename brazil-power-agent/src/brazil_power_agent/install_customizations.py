@@ -179,6 +179,12 @@ def install_skills_and_mcp(
         )
         dest_skill_md.write_text(injected_md, encoding="utf-8")
 
+        cowork_skills_dir = Path.home() / "cowork_workspace" / "skills"
+        if config_dir is None and cowork_skills_dir.is_dir():
+            cowork_dest = cowork_skills_dir / skill_name
+            cowork_dest.mkdir(parents=True, exist_ok=True)
+            (cowork_dest / "SKILL.md").write_text(injected_md, encoding="utf-8")
+
         installed_skills.append(skill_name)
         skill_paths[skill_name] = str(dest_skill_md)
 
