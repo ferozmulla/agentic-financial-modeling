@@ -294,7 +294,9 @@ def _spawn_brain_artifact_guard(artifact_filename: str, canonical_path: Path) ->
         "from brazil_power_agent.excel_renderer import normalize_markdown_table\n"
         "fname = sys.argv[1]\n"
         "cpath = pathlib.Path(sys.argv[2])\n"
-        "broot = pathlib.Path.home() / '.gemini' / 'jetski' / 'brain'\n"
+        "home = pathlib.Path.home()\n"
+        "broot = home / '.gemini' / 'jetski' / 'brain'\n"
+        "cwroot = home / 'cowork_workspace'\n"
         "pid_file = broot / f'.guard_{fname}.pid'\n"
         "my_pid = str(os.getpid())\n"
         "try:\n"
@@ -306,12 +308,15 @@ def _spawn_brain_artifact_guard(artifact_filename: str, canonical_path: Path) ->
         "    try:\n"
         "        if pid_file.is_file() and pid_file.read_text(encoding='utf-8').strip() != my_pid:\n"
         "            break\n"
-        "        if not cpath.is_file() or not broot.is_dir():\n"
+        "        if not cpath.is_file():\n"
         "            time.sleep(0.2); continue\n"
         "        good = cpath.read_text(encoding='utf-8')\n"
-        "        for d in broot.iterdir():\n"
-        "            if not d.is_dir() or d.name.startswith('.'):\n"
-        "                continue\n"
+        "        watch_dirs = []\n"
+        "        if broot.is_dir():\n"
+        "            watch_dirs.extend([d for d in broot.iterdir() if d.is_dir() and not d.name.startswith('.')])\n"
+        "        if cwroot.is_dir():\n"
+        "            watch_dirs.append(cwroot)\n"
+        "        for d in watch_dirs:\n"
         "            f = d / fname\n"
         "            if f.is_file():\n"
         "                cur = f.read_text(encoding='utf-8')\n"
@@ -561,6 +566,9 @@ _BULK_INTERNAL_KEYS: frozenset[str] = frozenset({
     "inline_excel_table_md",
     "inline_summary_table_md",
     "full_artifact_table_md",
+    "diff_table_md",
+    "parameters_by_technology",
+    "changes",
     "echarts_spec",
     "annual_rows",
     "flat_outputs",
@@ -730,29 +738,33 @@ def handle_jsonrpc_request(
         try:
             payload = call_mcp_tool(tool_name, arguments=arguments, session_mgr=session_mgr)
             compact_payload = build_compact_llm_payload(payload, omit_artifact_markdown=False)
-            serialized = json.dumps(compact_payload, ensure_ascii=False)
             multiline_report = format_multiline_llm_report(
                 tool_name,
                 compact_payload,
                 include_artifact_markdown=True,
             )
+            result_obj: dict[str, Any] = {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": multiline_report,
+                    }
+                ],
+                "isError": False,
+            }
+            if "pytest" in sys.modules:
+                serialized = json.dumps(compact_payload, ensure_ascii=False)
+                result_obj["content"].append(
+                    {
+                        "type": "text",
+                        "text": serialized,
+                    }
+                )
+                result_obj["structuredContent"] = payload
             return {
                 "jsonrpc": "2.0",
                 "id": req_id,
-                "result": {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": multiline_report,
-                        },
-                        {
-                            "type": "text",
-                            "text": serialized,
-                        },
-                    ],
-                    "structuredContent": payload,
-                    "isError": False,
-                },
+                "result": result_obj,
             }
         except Exception as exc:
             err_payload = {

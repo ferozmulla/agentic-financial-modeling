@@ -242,9 +242,9 @@ def format_excel_value(val: Any, fmt: str = "num2") -> str:
         return str(val).replace("US$", "USD").replace("R$", "BRL")
     fval = float(val)
     if fmt == "pct1":
-        return f"{fval * 100.0:.1f}% ({fval:.3f})"
+        return f"{fval * 100.0:.1f}%"
     if fmt == "pct2":
-        return f"{fval * 100.0:.2f}% ({fval:.4f})"
+        return f"{fval * 100.0:.2f}%"
     if fmt == "num0":
         return f"{fval:,.0f}"
     if fmt == "num1":
@@ -303,7 +303,7 @@ class ExcelLayoutRenderer:
             "Parameter (`General!B5:B40`)",
             "Unit",
             *[
-                f"Col {TECH_SPECS[tc]['general_col']} (`{tc}` {TECH_SPECS[tc]['display_name']})"
+                f"Col {TECH_SPECS[tc]['general_col']}: {TECH_SPECS[tc]['display_name']} (`{tc}`)"
                 for tc in selected_codes
             ],
         ]
@@ -311,7 +311,7 @@ class ExcelLayoutRenderer:
             "### Excel Tab Replica: `General` (`General!B5:N40` Scenario Assumptions)",
             "",
             "| " + " | ".join(inline_headers) + " |",
-            "| " + " | ".join(["---"] * len(inline_headers)) + " |",
+            "| :---: | :--- | :---: | " + " | ".join(["---:"] * len(selected_codes)) + " |",
         ]
         for row_meta in GENERAL_ROW_CATALOG:
             r_num = row_meta["row"]
@@ -330,7 +330,7 @@ class ExcelLayoutRenderer:
             "Parameter (`General!B`)",
             "Unit",
             *[
-                f"Col {TECH_SPECS[tc]['general_col']} (`{tc}` {TECH_SPECS[tc]['fuel']} {TECH_SPECS[tc]['tech']})"
+                f"Col {TECH_SPECS[tc]['general_col']}: {TECH_SPECS[tc]['display_name']} (`{tc}`)"
                 for tc in all_tech_codes
             ],
         ]
@@ -338,7 +338,7 @@ class ExcelLayoutRenderer:
             "# Full 12-Technology Excel Tab Replica: `General!B5:N40`",
             "",
             "| " + " | ".join(full_headers) + " |",
-            "| " + " | ".join(["---"] * len(full_headers)) + " |",
+            "| :---: | :--- | :---: | " + " | ".join(["---:"] * len(all_tech_codes)) + " |",
         ]
         for row_meta in GENERAL_ROW_CATALOG:
             r_num = row_meta["row"]

@@ -33,17 +33,19 @@ This workflow encapsulates the complete 22-tab `2023-11-27-Brazil_TT_v13_RJEB.xl
 ## 4-Step Sequential Interactive Visual Card Workflow
 
 > [!IMPORTANT]
-> **FAST-START LATENCY RULE (ZERO PRE-CARD TOOL CALLS)**:
-> 1. On Turn 1, when the analyst invokes `/brazil-power-model` without explicit parameters, do **NOT** call `get_session_assumptions`, do **NOT** search the filesystem (`find_by_name`, `grep_search`, `list_dir`, `view_file`), and do **NOT** run shell commands (`run_command`) before presenting Card 1—all baseline `General!B5:N40` assumptions are already embedded in the Reference Table above.
-> 2. Instead, in **one single parallel tool-call batch on Turn 1**, call **BOTH**:
->    - `write_to_file` (`TargetFile="<artifact_dir>/brazil_v13_general_assumptions.md"`, `Overwrite=true`, `ArtifactMetadata={"UserFacing": true, "RequestFeedback": false, "Summary": "Baseline General!B5:N40 12-technology assumptions matrix for Brazil Power Model v13"}`) containing the multi-line baseline `General!B5:N40` Reference Table above (with a real physical newline `\n` after every `| ... |` row) so the right-hand Artifact pane opens immediately alongside Card 1 for decision-making, **AND**
->    - `ask_question` (Card 1 below) in the exact same turn.
-> 3. Ask the questions **sequentially** (Card 1 first for Technology & Scenario Assumptions, then Card 2 in Step 3 for Analysis Selection).
+> **TURN 1 UPFRONT ARTIFACT & 2-CARD WORKFLOW RULE (ZERO PRE-CARD TOOL CALLS TO SHELL/MCP)**:
+> 1. **ZERO PRE-CARD TOOL CALLS TO SHELL/MCP/FILESYSTEM**: On Turn 1, do **NOT** call `get_session_assumptions`, do **NOT** run shell commands (`run_command`), and do **NOT** search the filesystem (`find_by_name`, `grep_search`, `list_dir`, `view_file`) before Card 1—all baseline `General!B5:N40` assumptions are already embedded in the Reference Table above.
+> 2. **MANDATORY UPFRONT ARTIFACT ON TURN 1 (`write_to_file`)**: On Turn 1, you **MUST** call `write_to_file` (`TargetFile="<artifact_dir>/brazil_v13_general_assumptions.md"`, `Overwrite=true`, `ArtifactMetadata={"UserFacing": true, "RequestFeedback": false, "Summary": "Brazil Power Techno-Economic Model (v13) — General Assumptions Matrix (General!B5:N40)"}`) using the clean multi-line Reference Table above (with a real physical newline `\n` after every row) **before or alongside Card 1 (`ask_question`)** so the analyst can see `brazil_v13_general_assumptions.md` in the right-hand Artifact pane while answering Card 1.
+> 3. **EXACTLY 2 QUESTION CARDS TOTAL (DO NOT SPLIT CARD 1 INTO TWO CARDS)**:
+>    - **Card 1 (Step 1)**: Pass **both** questions (`technology groups` AND `scenario assumptions`) together inside the `questions` array of a **single** `ask_question` call.
+>    - **Card 2 (Step 3)**: Present the quantitative analysis workflow selection card after Card 1 is answered.
 
-### Step 1: Card 1 — Upfront `brazil_v13_general_assumptions.md` Artifact + Technology & Scenario Selection (`write_to_file` + `ask_question` in parallel)
+### Step 1: Card 1 — Upfront `brazil_v13_general_assumptions.md` Artifact (`write_to_file`) + Technology & Scenario Selection Card (`ask_question`)
 
-1. If the analyst already provided explicit parameter overrides in natural language (e.g., *"Set Gas CCGT fuel cost to 6.50 R$/MMBtu and Small Hydro lead time to 2 years"*), proceed directly to **Step 2**.
-2. Otherwise, on Turn 1 with zero prior MCP/shell/filesystem calls, emit `write_to_file` (to open `brazil_v13_general_assumptions.md` in the right-hand Artifact pane using the multi-line Reference Table above, preserving a real newline `\n` after every row) **in parallel with** `ask_question`:
+1. If the analyst already provided explicit parameter overrides in natural language (e.g., *"Set Gas CCGT fuel cost to 6.50 BRL/MMBtu and Small Hydro lead time to 2 years"*), proceed directly to **Step 2**.
+2. Otherwise, on Turn 1:
+   - **First**, call `write_to_file` to create `<artifact_dir>/brazil_v13_general_assumptions.md` (`UserFacing: true`) titled `# Brazil Power Techno-Economic Model (v13) — General Assumptions Matrix` containing the multi-line 12-Technology `General!B5:N40` Reference Table above (every `| ... |` row on its own line with a physical `\n` newline).
+   - **Second** (in the same Turn 1 batch or immediately after `write_to_file` completes), call `ask_question` with **both** Card 1 questions in a single call:
 
 ```json
 {
@@ -63,8 +65,8 @@ This workflow encapsulates the complete 22-tab `2023-11-27-Brazil_TT_v13_RJEB.xl
       "question": "Which scenario assumptions in General!B5:N40 would you like to apply (or use the write-in box for custom cell/parameter overrides)?",
       "is_multi_select": true,
       "options": [
-        "(Recommended) Keep current General!B5:N40 baseline assumptions (Gas Fuel=4.50 R$/MMBtu, WACC=8.00%, SHP Lead Time=3.0 yrs)",
-        "High Gas Fuel & Fast SHP Build: Gas CCGT Fuel (General!C20) 4.50 -> 6.50 R$/MMBtu (+44.4%), Small Hydro Lead Time (General!H14) 3.0 -> 2.0 yrs (-33.3%)",
+        "(Recommended) Keep current General!B5:N40 baseline assumptions (Gas Fuel=4.50 BRL/MMBtu, WACC=8.00%, SHP Lead Time=3.0 yrs)",
+        "High Gas Fuel & Fast SHP Build: Gas CCGT Fuel (General!C20) 4.50 -> 6.50 BRL/MMBtu (+44.4%), Small Hydro Lead Time (General!H14) 3.0 -> 2.0 yrs (-33.3%)",
         "Tighter Capital Cost & Higher WACC: Real WACC (General!C34:N34) 8.00% -> 9.50% (+150 bps), Solar PV Capex (General!G11) -10%",
         "Reset all staged session overrides back to the clean 2023-11-27-Brazil_TT_v13_RJEB.xlsm seed baseline"
       ]
@@ -77,8 +79,11 @@ This workflow encapsulates the complete 22-tab `2023-11-27-Brazil_TT_v13_RJEB.xl
 
 1. If the analyst selected `"Keep current General!B5:N40 baseline assumptions"`, make **zero** MCP tool calls in Step 2 (`brazil_v13_general_assumptions.md` is already open in the right-hand pane from Step 1) and immediately call `ask_question` in **Step 3** (Card 2).
 2. If the analyst selected or typed any parameter changes (or requested a baseline reset):
-   - Call `update_session_assumptions` on `brazil-power-mcp` with `overrides` (accepts either semantic dictionaries such as `{"_01_CF": {"fuel_cost_r_per_mmbtu": 6.50}, "_06_CF": {"lead_time_years": 2.0}}` or exact Excel cell coordinates such as `{"General!C20": 6.50, "General!H14": 2.0}}`).
-   - Then, in the same turn that you call `ask_question` for **Card 2** (Step 3), call `write_to_file` in parallel on `brazil_v13_general_assumptions.md` (`TargetFile=artifact_file_path`, `Overwrite=true`, `UserFacing=true`) to refresh the right-hand Artifact pane with the staged scenario override diff table and updated 12-technology grid (preserving a real physical newline `\n` after every `| ... |` row).
+   - Call `update_session_assumptions` on `brazil-power-mcp` with `overrides` (accepts either semantic dictionaries such as `{"_01_CF": {"fuel_cost_r_per_mmbtu": 6.50}, "_06_CF": {"lead_time_years": 2.0}}` or exact Excel cell coordinates such as `{"General!C20": 6.50, "General!H14": 2.0}`).
+   - Refresh `<artifact_dir>/brazil_v13_general_assumptions.md` via `write_to_file` (`Overwrite=true`, `UserFacing=true`) using the clean two-section multi-line Markdown table layout:
+     1. `## 1. Staged Scenario Parameter Overrides` (`| Excel Cell | Sheet / Technology | Parameter Description | Seed Baseline | Staged Value | Delta (Δ) | Delta (%) |`)
+     2. `## 2. Complete 12-Technology Assumptions Grid (General!B5:N40)` (the 12-Technology Reference Table with modified cells bolded, preserving a real physical newline `\n` after every single `| ... |` table row — **NEVER** collapse rows onto one line with `| |`).
+   - Immediately call `ask_question` for **Card 2** (Step 3).
 
 ### Step 3: Card 2 — Sequential Interactive Analysis Selection Card (`ask_question`)
 
