@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import colorsys
 import json
+import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -20,8 +21,36 @@ from brazil_power_bq_twin.models import (
     CellRecord,
     StyleRecord,
     WorksheetRecord,
+    col_letter_to_index,
     index_to_col_letter,
 )
+
+_VALID_DN_NAME_RE = re.compile(r"^(?:_xlnm\.[A-Za-z_]+|[A-Za-z_\\][A-Za-z0-9_.]*)$")
+_SHEET_REF_RE = re.compile(r"(?:'([^']+)'|([A-Za-z0-9_]+))!")
+_ADDIN_DN_PREFIXES = ("_AtRisk_", "Risk", "SAPBEX", "wrn.", "HTML_", "_GV", "GVKey", "_Order", "IQ_")
+
+
+def _is_valid_internal_defined_name(name: str, attr_text: str, valid_sheets: set[str]) -> bool:
+    """Return True if a DefinedName is a valid internal name without broken external/#REF! links."""
+    clean_name = name.strip()
+    clean_attr = attr_text.strip()
+    if not clean_name or not clean_attr or clean_name.endswith("."):
+        return False
+    if clean_name.startswith(_ADDIN_DN_PREFIXES):
+        return False
+    if not _VALID_DN_NAME_RE.match(clean_name):
+        return False
+    if "[" in clean_attr or "]" in clean_attr or "#REF!" in clean_attr or "#N/A" in clean_attr:
+        return False
+    if "!" in clean_attr:
+        matches = _SHEET_REF_RE.findall(clean_attr)
+        if not matches:
+            return False
+        for quoted_s, bare_s in matches:
+            ref_sheet = quoted_s or bare_s
+            if ref_sheet not in valid_sheets:
+                return False
+    return True
 
 # Standard Office 2007+ theme palette in SpreadsheetML index order (lt1, dk1, lt2, dk2, accent1..6, hlink, folHlink)
 _DEFAULT_OFFICE_THEME: tuple[str, ...] = (
@@ -294,21 +323,75 @@ def compile_workbook_to_twin_payload(
     cells_by_sheet: dict[str, dict[str, CellRecord]] = {}
     cell_rows: list[dict[str, Any]] = []
 
+    valid_sheets = set(wb_formulas.sheetnames)
+    named_ranges: list[dict[str, Any]] = []
+    seen_dn_keys: set[tuple[str, int | None]] = set()
+
     for s_idx, sheet_name in enumerate(wb_formulas.sheetnames):
         ws_f = wb_formulas[sheet_name]
         ws_v = wb_values[sheet_name]
 
         merges = tuple(sorted(str(rng) for rng in ws_f.merged_cells.ranges))
-        col_widths = {
-            str(col_key).upper(): round(float(dim.width), 3)
-            for col_key, dim in ws_f.column_dimensions.items()
-            if dim.width is not None
-        }
-        row_heights = {
-            str(row_key): round(float(dim.height), 3)
-            for row_key, dim in ws_f.row_dimensions.items()
-            if dim.height is not None
-        }
+        col_widths: dict[str, float] = {}
+        hidden_cols: list[str] = []
+        col_outlines: dict[str, int] = {}
+        trailing_col_spans: list[dict[str, Any]] = []
+
+        for col_key, dim in ws_f.column_dimensions.items():
+            try:
+                c_min = int(dim.min) if getattr(dim, "min", None) else col_letter_to_index(str(col_key))
+            except ValueError:
+                continue
+            c_max = int(dim.max) if getattr(dim, "max", None) else c_min
+            w_val = round(float(dim.width), 3) if dim.width is not None else None
+            is_hid = bool(getattr(dim, "hidden", False))
+            out_lvl = int(getattr(dim, "outlineLevel", 0) or 0)
+
+            if c_max <= 256:
+                for c_idx in range(c_min, max(c_min, c_max) + 1):
+                    c_let = index_to_col_letter(c_idx)
+                    if w_val is not None:
+                        col_widths[c_let] = w_val
+                    if is_hid and c_let not in hidden_cols:
+                        hidden_cols.append(c_let)
+                    if out_lvl > 0:
+                        col_outlines[c_let] = out_lvl
+            else:
+                trailing_col_spans.append(
+                    {"min": c_min, "max": c_max, "width": w_val, "hidden": is_hid}
+                )
+
+        row_heights: dict[str, float] = {}
+        hidden_rows: list[int] = []
+        row_outlines: dict[str, int] = {}
+        for row_key, dim in ws_f.row_dimensions.items():
+            r_int = int(row_key)
+            r_str = str(r_int)
+            if dim.height is not None:
+                row_heights[r_str] = round(float(dim.height), 3)
+            if bool(getattr(dim, "hidden", False)):
+                hidden_rows.append(r_int)
+            r_out = int(getattr(dim, "outlineLevel", 0) or 0)
+            if r_out > 0:
+                row_outlines[r_str] = r_out
+
+        sv_obj = ws_f.views.sheetView[0] if getattr(ws_f, "views", None) and ws_f.views.sheetView else None
+        show_grid = False if getattr(sv_obj, "showGridLines", None) is False else True
+        zoom_val = int(sv_obj.zoomScale) if getattr(sv_obj, "zoomScale", None) else None
+        sheet_view_dict: dict[str, Any] = {"show_grid_lines": show_grid}
+        if zoom_val is not None:
+            sheet_view_dict["zoom_scale"] = zoom_val
+        if hidden_cols:
+            sheet_view_dict["hidden_cols"] = hidden_cols
+        if hidden_rows:
+            sheet_view_dict["hidden_rows"] = sorted(hidden_rows)
+        if col_outlines:
+            sheet_view_dict["col_outlines"] = col_outlines
+        if row_outlines:
+            sheet_view_dict["row_outlines"] = row_outlines
+        if trailing_col_spans:
+            sheet_view_dict["trailing_col_spans"] = trailing_col_spans
+
         tab_rgb = _resolve_color_argb(getattr(ws_f.sheet_properties, "tabColor", None), theme_palette)
         freeze_coord = str(ws_f.freeze_panes) if ws_f.freeze_panes else None
         visibility = str(ws_f.sheet_state or "visible")
@@ -322,6 +405,7 @@ def compile_workbook_to_twin_payload(
             col_widths=col_widths,
             row_heights=row_heights,
             freeze_panes_coord=freeze_coord,
+            sheet_view=sheet_view_dict,
         )
         worksheets.append(ws_rec)
         worksheet_rows.append(
@@ -336,15 +420,28 @@ def compile_workbook_to_twin_payload(
                 "col_widths_json": json.dumps(col_widths),
                 "row_heights_json": json.dumps(row_heights),
                 "freeze_panes_coord": freeze_coord,
+                "sheet_view_json": json.dumps(sheet_view_dict, sort_keys=True),
             }
         )
+
+        # Collect worksheet-scoped defined names (OpenPyXL 3.1 stores local names on ws.defined_names)
+        if hasattr(ws_f, "defined_names"):
+            for ws_dn in ws_f.defined_names.values():
+                dn_name = str(ws_dn.name)
+                dn_attr = str(ws_dn.attr_text or "")
+                if _is_valid_internal_defined_name(dn_name, dn_attr, valid_sheets):
+                    dn_key = (dn_name, s_idx)
+                    if dn_key not in seen_dn_keys:
+                        seen_dn_keys.add(dn_key)
+                        named_ranges.append(
+                            {"name": dn_name, "attr_text": dn_attr, "local_sheet_id": s_idx}
+                        )
 
         sheet_map: dict[str, CellRecord] = {}
         for row_cells in ws_f.iter_rows():
             for cell_f in row_cells:
-                if isinstance(cell_f, MergedCell):
-                    continue
-                raw_f_obj = cell_f.value
+                is_merged_subcell = isinstance(cell_f, MergedCell)
+                raw_f_obj = None if is_merged_subcell else cell_f.value
                 if raw_f_obj is None and not cell_f.has_style:
                     continue
                 style_tup = _extract_style_tuple(cell_f, theme_palette)
@@ -356,14 +453,13 @@ def compile_workbook_to_twin_payload(
                     style_index[style_tup] = len(style_index)
                 sid = style_index[style_tup]
 
-                cell_v = ws_v.cell(row=cell_f.row, column=cell_f.column)
-                cached_val = cell_v.value
+                cached_val = None if is_merged_subcell else ws_v.cell(row=cell_f.row, column=cell_f.column).value
 
                 raw_formula: str | None = None
                 numeric_val: float | None = None
                 string_val: str | None = None
                 data_type = "s"
-                semantic_role = "INPUT"
+                semantic_role = "MERGED_STYLE" if is_merged_subcell else "INPUT"
 
                 if isinstance(raw_f_obj, ArrayFormula):
                     ftxt = str(raw_f_obj.text or "")
@@ -423,15 +519,21 @@ def compile_workbook_to_twin_payload(
                 )
         cells_by_sheet[sheet_name] = sheet_map
 
-    named_ranges: list[dict[str, Any]] = []
     for defn in wb_formulas.defined_names.values():
-        named_ranges.append(
-            {
-                "name": str(defn.name),
-                "attr_text": str(defn.attr_text or ""),
-                "local_sheet_id": defn.localSheetId,
-            }
-        )
+        dn_name = str(defn.name)
+        dn_attr = str(defn.attr_text or "")
+        local_sid = defn.localSheetId
+        if _is_valid_internal_defined_name(dn_name, dn_attr, valid_sheets):
+            dn_key = (dn_name, local_sid)
+            if dn_key not in seen_dn_keys:
+                seen_dn_keys.add(dn_key)
+                named_ranges.append(
+                    {
+                        "name": dn_name,
+                        "attr_text": dn_attr,
+                        "local_sheet_id": local_sid,
+                    }
+                )
 
     wb_formulas.close()
     wb_values.close()

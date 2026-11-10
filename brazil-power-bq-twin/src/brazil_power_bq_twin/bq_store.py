@@ -218,7 +218,7 @@ class BigQueryDigitalTwinStore:
 
         ws_rows = self._run_query(
             f"SELECT sheet_index, sheet_name, visibility, tab_color_rgb, merged_ranges_json, "
-            f"col_widths_json, row_heights_json, freeze_panes_coord "
+            f"col_widths_json, row_heights_json, freeze_panes_coord, sheet_view_json "
             f"FROM {fq_ws} WHERE workbook_id = @workbook_id AND version_id = @version_id "
             f"ORDER BY sheet_index ASC",
             params,
@@ -233,6 +233,7 @@ class BigQueryDigitalTwinStore:
                 col_widths={str(k): float(v) for k, v in json.loads(r["col_widths_json"] or "{}").items()},
                 row_heights={str(k): float(v) for k, v in json.loads(r["row_heights_json"] or "{}").items()},
                 freeze_panes_coord=r["freeze_panes_coord"],
+                sheet_view=json.loads((r.get("sheet_view_json") if isinstance(r, dict) else r["sheet_view_json"]) or "{}"),
             )
             for r in ws_rows
         ]

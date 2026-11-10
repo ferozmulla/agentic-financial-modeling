@@ -11,6 +11,8 @@ from typing import Any
 
 import openpyxl
 from openpyxl.styles import Alignment, Border, Color, Font, PatternFill, Side
+from openpyxl.workbook.defined_name import DefinedName
+from openpyxl.worksheet.dimensions import ColumnDimension
 
 from brazil_power_bq_twin.bq_store import DigitalTwinStore
 from brazil_power_bq_twin.config import get_twin_settings
@@ -121,6 +123,35 @@ def synthesize_22tab_xlsx_bytes(
             if row_str.isdigit():
                 ws.row_dimensions[int(row_str)].height = height_val
 
+        sv = ws_rec.sheet_view or {}
+        if "show_grid_lines" in sv:
+            ws.sheet_view.showGridLines = bool(sv["show_grid_lines"])
+        if sv.get("zoom_scale"):
+            ws.sheet_view.zoomScale = int(sv["zoom_scale"])
+        for hid_col in sv.get("hidden_cols", []):
+            ws.column_dimensions[str(hid_col)].hidden = True
+        for hid_row in sv.get("hidden_rows", []):
+            ws.row_dimensions[int(hid_row)].hidden = True
+        for col_let, out_lvl in (sv.get("col_outlines") or {}).items():
+            ws.column_dimensions[str(col_let)].outlineLevel = int(out_lvl)
+        for row_str, out_lvl in (sv.get("row_outlines") or {}).items():
+            if str(row_str).isdigit():
+                ws.row_dimensions[int(row_str)].outlineLevel = int(out_lvl)
+        for span in sv.get("trailing_col_spans", []):
+            from brazil_power_bq_twin.models import index_to_col_letter
+
+            s_min = int(span["min"])
+            s_max = int(span["max"])
+            s_let = index_to_col_letter(s_min)
+            ws.column_dimensions[s_let] = ColumnDimension(
+                ws,
+                index=s_let,
+                min=s_min,
+                max=s_max,
+                width=span.get("width"),
+                hidden=bool(span.get("hidden", False)),
+            )
+
         base_cells = snapshot.cells_by_sheet.get(ws_rec.sheet_name, {})
         delta_cells = overlay.deltas_by_sheet.get(ws_rec.sheet_name, {})
         all_coords = set(base_cells.keys()) | set(delta_cells.keys())
@@ -142,7 +173,7 @@ def synthesize_22tab_xlsx_bytes(
             elif base_c is not None:
                 if base_c.raw_formula:
                     target_cell.value = f"={base_c.raw_formula}"
-                else:
+                elif base_c.effective_baseline_value is not None:
                     target_cell.value = base_c.effective_baseline_value
 
             if base_c is not None and base_c.style_id in hydrated_styles:
@@ -160,6 +191,20 @@ def synthesize_22tab_xlsx_bytes(
 
         for m_rng in ws_rec.merged_ranges:
             ws.merge_cells(m_rng)
+
+    from brazil_power_bq_twin.xlsm_compiler import _is_valid_internal_defined_name
+
+    valid_sheet_set = set(wb.sheetnames)
+    for dn_entry in snapshot.named_ranges or []:
+        dn_name = str(dn_entry.get("name") or "")
+        dn_attr = str(dn_entry.get("attr_text") or "")
+        local_sid = dn_entry.get("local_sheet_id")
+        if not _is_valid_internal_defined_name(dn_name, dn_attr, valid_sheet_set):
+            continue
+        if isinstance(local_sid, int) and 0 <= local_sid < len(wb.worksheets) and hasattr(wb.worksheets[local_sid], "defined_names"):
+            wb.worksheets[local_sid].defined_names.add(DefinedName(name=dn_name, attr_text=dn_attr))
+        else:
+            wb.defined_names.add(DefinedName(name=dn_name, attr_text=dn_attr, localSheetId=local_sid))
 
     buf = io.BytesIO()
     wb.save(buf)

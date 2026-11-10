@@ -123,3 +123,72 @@ def test_theme_and_indexed_colors_never_render_black_fill(tmp_path: Path) -> Non
     assert vc_b3_rgb == "FFD9D9D9"
     out_wb.close()
 
+
+def test_merged_borders_sheet_views_spanned_cols_and_defined_names_roundtrip(tmp_path: Path) -> None:
+    from openpyxl.styles import Border, Side
+    from openpyxl.workbook.defined_name import DefinedName
+    from openpyxl.worksheet.dimensions import ColumnDimension
+
+    src_wb_path = _create_synthetic_22tab_workbook(tmp_path / "latent_fmt.xlsx")
+    wb_edit = openpyxl.load_workbook(src_wb_path)
+    gen = wb_edit["General"]
+
+    # 1. Merged-cell perimeter borders on B2:D2 (top/left on B2, bottom/right on MergedCell D2)
+    med = Side(style="medium", color="FF002060")
+    gen.unmerge_cells("B2:D2")
+    gen["B2"].border = Border(top=med, left=med)
+    gen["C2"].border = Border(top=med, bottom=med)
+    gen["D2"].border = Border(top=med, right=med, bottom=med)
+    gen.merge_cells("B2:D2")
+
+    # 2. Spanned column width F..G (6..7), hidden/outlined row & col, zoomScale & showGridLines
+    gen.column_dimensions["F"] = ColumnDimension(gen, index="F", min=6, max=7, width=23.5)
+    gen.column_dimensions["E"].hidden = True
+    gen.column_dimensions["E"].outlineLevel = 2
+    gen.row_dimensions[31].hidden = True
+    gen.row_dimensions[31].outlineLevel = 1
+    gen.sheet_view.showGridLines = False
+    gen.sheet_view.zoomScale = 85
+
+    # 3. Valid workbook & sheet-scoped defined names + broken external/#REF! names to filter out
+    wb_edit.defined_names.add(DefinedName(name="Base_Capex_Ref", attr_text="General!$C$11"))
+    wb_edit.defined_names.add(DefinedName(name="Model_Horizon_Yrs", attr_text="30"))
+    wb_edit.defined_names.add(DefinedName(name="Local_Gen_Flag", attr_text="General!$C$8", localSheetId=1))
+    wb_edit.defined_names.add(DefinedName(name="Broken_Ext_Link", attr_text="[5]Ajustes!$C$13"))
+    wb_edit.defined_names.add(DefinedName(name="Broken_Ref_Name", attr_text="#REF!"))
+
+    wb_edit.save(src_wb_path)
+    wb_edit.close()
+
+    snap = compile_workbook_to_twin_payload(src_wb_path).snapshot
+    src_wb_path.unlink()
+
+    store = InMemoryDigitalTwinStore(snap)
+    xlsx_bytes, _ = synthesize_22tab_xlsx_bytes(snap, store.get_session_overlay("latent_s1"))
+    out_wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes), data_only=False)
+    out_gen = out_wb["General"]
+
+    # Verify Item 1: Merged-cell D2 perimeter right & bottom medium border preserved
+    assert out_gen["D2"].border.right.style == "medium"
+    assert out_gen["D2"].border.bottom.style == "medium"
+    assert out_gen["D2"].border.right.color.rgb == "FF002060"
+
+    # Verify Item 2: Spanned col width F & G both 23.5, hidden/outline row & col, zoom=85, showGridLines=False
+    assert abs(out_gen.column_dimensions["F"].width - 23.5) < 0.05
+    assert abs(out_gen.column_dimensions["G"].width - 23.5) < 0.05
+    assert out_gen.column_dimensions["E"].hidden is True
+    assert out_gen.column_dimensions["E"].outlineLevel == 2
+    assert out_gen.row_dimensions[31].hidden is True
+    assert out_gen.row_dimensions[31].outlineLevel == 1
+    assert out_gen.sheet_view.showGridLines is False
+    assert out_gen.sheet_view.zoomScale == 85
+
+    # Verify Item 3: Valid defined names preserved on workbook, broken external/#REF! excluded
+    assert "Base_Capex_Ref" in out_wb.defined_names
+    assert out_wb.defined_names["Base_Capex_Ref"].attr_text == "General!$C$11"
+    assert "Model_Horizon_Yrs" in out_wb.defined_names
+    assert "Broken_Ext_Link" not in out_wb.defined_names
+    assert "Broken_Ref_Name" not in out_wb.defined_names
+    out_wb.close()
+
+

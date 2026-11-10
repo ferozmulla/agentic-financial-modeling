@@ -70,9 +70,14 @@ def build_digital_twin_ddl_statements(project_id: str, dataset_id: str) -> list[
           merged_ranges_json STRING NOT NULL,
           col_widths_json STRING NOT NULL,
           row_heights_json STRING NOT NULL,
-          freeze_panes_coord STRING
+          freeze_panes_coord STRING,
+          sheet_view_json STRING
         )
         CLUSTER BY workbook_id, version_id, sheet_index
+        """,
+        f"""
+        ALTER TABLE {fq}.dt_worksheets`
+        ADD COLUMN IF NOT EXISTS sheet_view_json STRING
         """,
         f"""
         CREATE TABLE IF NOT EXISTS {fq}.dt_styles` (

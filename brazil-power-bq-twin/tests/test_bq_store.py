@@ -128,6 +128,7 @@ class _FakeBQClient:
                         "col_widths_json": "{}",
                         "row_heights_json": "{}",
                         "freeze_panes_coord": None,
+                        "sheet_view_json": "{}",
                     }
                 ]
             )

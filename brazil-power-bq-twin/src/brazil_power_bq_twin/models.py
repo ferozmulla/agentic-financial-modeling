@@ -64,6 +64,7 @@ class WorksheetRecord:
     col_widths: dict[str, float] = field(default_factory=dict)
     row_heights: dict[str, float] = field(default_factory=dict)
     freeze_panes_coord: str | None = None
+    sheet_view: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
