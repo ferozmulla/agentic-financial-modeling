@@ -1,6 +1,6 @@
 ---
 name: eulr-refining-model-gcp
-description: End-to-end guided workflow for the 100% Excel-free BigQuery Digital Twin of the EULR European Refining & Product Equilibrium Model (comm-model-mod.eulr_digital_twin via eulr-refining-mcp). Step 1: FIRST calls write_to_file alone to publish eulr_refining_baseline_assumptions.md in the side-pane Artifact viewer BEFORE asking questions. Step 2: Presents Card 1 (Question 1/2 European Hub/Scope Selection & Question 2/2 Driver, EU ETS Switch, or Pinned Price Overrides). Step 3: Stages overrides to BigQuery dt_scenario_deltas and refreshes the Artifact. Step 4: Presents Card 2 (Quantitative Analysis Selection), renders ECharts + Artifacts, and synthesizes 18-tab (or 19-tab +UPLOAD) .xlsx workbooks purely from BigQuery rows.
+description: "End-to-end guided workflow for the 100% Excel-free BigQuery Digital Twin of the EULR European Refining & Product Equilibrium Model (comm-model-mod.eulr_digital_twin via eulr-refining-mcp). Publishes eulr_refining_baseline_assumptions.md in the side-pane Artifact viewer first, presents Card 1 (Hub/Scope Selection & Driver, EU ETS Switch, or Pinned Price Overrides), stages overrides to BigQuery dt_scenario_deltas, presents Card 2 (Quantitative Analysis Selection), renders ECharts + Artifacts, and synthesizes 18-tab or 19-tab .xlsx workbooks purely from BigQuery rows."
 ---
 
 # EULR European Refining Equilibrium — GCP BigQuery Digital Twin Orchestrator (`/eulr-refining-model-gcp`)

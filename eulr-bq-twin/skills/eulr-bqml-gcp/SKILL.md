@@ -1,6 +1,6 @@
 ---
 name: eulr-bqml-gcp
-description: Direct shortcut workflow for the EULR BigQuery ML ARIMA_PLUS 2025–2050 Time-Series Forecast Refresh across Macro, Benchmark Crudes (Dated Brent, Urals, Azeri, Arab Light, Es Sider), and Clean/Dirty Tanker Freight on eulr-refining-mcp.
+description: "Direct shortcut workflow for the EULR BigQuery ML ARIMA_PLUS 2025-2050 Time-Series Forecast Refresh across Macro, Benchmark Crudes (Dated Brent, Urals, Azeri, Arab Light, Es Sider), and Clean/Dirty Tanker Freight on eulr-refining-mcp."
 ---
 
 # EULR BigQuery ML `ARIMA_PLUS` Driver Forecast Refresh (`/eulr-bqml-gcp`)

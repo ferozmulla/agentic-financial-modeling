@@ -1,6 +1,6 @@
 ---
 name: eulr-hck-economics-gcp
-description: Direct shortcut workflow for the EULR 200 kb/d Sour Hydrocracker Project IRR & NPV 9-point sensitivity (2015 NWE HCK IRR), Naphtha vs. Diesel mode revamp (HCK naphtha revamp), and ULSD 10ppm vs. 0.1%S Gasoil cost-coverage thresholds (ULSD-GO_spread_econs) on eulr-refining-mcp.
+description: "Direct shortcut workflow for the EULR 200 kb/d Sour Hydrocracker Project IRR & NPV 9-point sensitivity (2015 NWE HCK IRR), Naphtha vs. Diesel mode revamp (HCK naphtha revamp), and ULSD 10ppm vs. 0.1%S Gasoil cost-coverage thresholds (ULSD-GO_spread_econs) on eulr-refining-mcp."
 ---
 
 # EULR Hydrocracker Project IRR & Distillate Spread Economics (`/eulr-hck-economics-gcp`)

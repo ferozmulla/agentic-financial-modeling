@@ -1,6 +1,6 @@
 ---
 name: eulr-scenario-matrix-gcp
-description: Direct shortcut workflow for the EULR 6-Way European Refining Margin, EU ETS Carbon Pass-Through (Cost+Allocation, Variable Cost Only, Carbon Off), and Live 3-Peer Upstream Sync (Uslr/Felr/Tankerlr) Scenario Matrix on eulr-refining-mcp.
+description: "Direct shortcut workflow for the EULR 6-Way European Refining Margin, EU ETS Carbon Pass-Through (Cost+Allocation, Variable Cost Only, Carbon Off), and Live 3-Peer Upstream Sync (Uslr/Felr/Tankerlr) Scenario Matrix on eulr-refining-mcp."
 ---
 
 # EULR 6-Way EU ETS Carbon, Margin Stress & Peer-Sync Matrix (`/eulr-scenario-matrix-gcp`)

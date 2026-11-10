@@ -1,6 +1,6 @@
 ---
 name: eulr-equilibrium-gcp
-description: Direct shortcut workflow for the EULR 10-Pass Gauss-Seidel Circular Equilibrium Solver, #FDE68A Pinned Price Overrides, 3-Peer (Uslr/Felr/Tankerlr) Upstream Sync, and 180-rule Checks diagnostics on eulr-refining-mcp (comm-model-mod.eulr_digital_twin).
+description: "Direct shortcut workflow for the EULR 10-Pass Gauss-Seidel Circular Equilibrium Solver, #FDE68A Pinned Price Overrides, 3-Peer (Uslr/Felr/Tankerlr) Upstream Sync, and 180-rule Checks diagnostics on eulr-refining-mcp (comm-model-mod.eulr_digital_twin)."
 ---
 
 # EULR 10-Pass Circular Equilibrium & Pinned Price Solver (`/eulr-equilibrium-gcp`)
