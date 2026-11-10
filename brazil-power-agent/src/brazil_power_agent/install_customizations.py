@@ -171,8 +171,6 @@ def install_skills_and_mcp(
         remote_sse=remote_sse,
         server_url=server_url,
     )
-    if "command" in server_entry:
-        server_entry.setdefault("env", {})["GEMINI_ENTERPRISE_APP_ID"] = "cb0f4566-dfad-496c-9b28-3542d86a5367"
 
     installed_skills: list[str] = []
     skill_paths: dict[str, str] = {}

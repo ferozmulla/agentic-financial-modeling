@@ -4,10 +4,6 @@ import io
 import json
 from pathlib import Path
 
-from brazil_power_agent.adk_agent.agent import (
-    GEMINI_ENTERPRISE_APP_METADATA,
-    root_agent,
-)
 from brazil_power_agent.mcp_server import (
     MCP_TOOLS,
     build_mcp_server_config_entry,
@@ -263,27 +259,7 @@ def test_stdio_framing_newline_and_content_length(tmp_path: Path) -> None:
     assert len(parsed_framed["result"]["tools"]) == 7
 
 
-def test_adk_agent_wrapper_and_mcp_config_helper(tmp_path: Path) -> None:
-    assert GEMINI_ENTERPRISE_APP_METADATA["project"] == "comm-model-mod"
-    assert GEMINI_ENTERPRISE_APP_METADATA["location"] == "us"
-    assert GEMINI_ENTERPRISE_APP_METADATA["cid"] == "cb0f4566-dfad-496c-9b28-3542d86a5367"
-    assert (
-        GEMINI_ENTERPRISE_APP_METADATA["url"]
-        == "https://vertexaisearch.cloud.google.com/us/home/cid/cb0f4566-dfad-496c-9b28-3542d86a5367?hl=en_US"
-    )
-
-    assert root_agent.name == "brazil_power_v13_agent"
-    assert len(root_agent.tools) == 7
-
-    # Invoke tool via ADK wrapper using isolated session_path
-    res = root_agent.invoke_tool(
-        "get_session_assumptions",
-        technologies=["_01_CF", "_06_CF"],
-        session_path=str(tmp_path / "adk_session.json"),
-    )
-    assert "inline_markdown" in res
-    assert "_01_CF" in res["inline_markdown"]
-
+def test_mcp_config_helper(tmp_path: Path) -> None:
     cfg_entry = build_mcp_server_config_entry(tmp_path)
     assert "command" in cfg_entry
     assert "args" in cfg_entry

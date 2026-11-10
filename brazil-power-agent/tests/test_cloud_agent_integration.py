@@ -15,23 +15,13 @@ for _p in (str(WORKSPACE_ROOT / "brazil-power-agent" / "src"), str(WORKSPACE_ROO
 from src.api.main import create_app
 
 
-def test_a2a_agent_card_endpoints() -> None:
-    """Verify A2A agent card discovery endpoints expose the 5 Brazil Power v13 skills."""
+def test_a2a_and_standalone_chat_routes_removed() -> None:
+    """Verify standalone A2A and prompt-chat endpoints are removed while Remote MCP remains active."""
     client = TestClient(create_app())
-    for path in ("/.well-known/agent.json", "/.well-known/agent-card.json", "/a2a/app/.well-known/agent-card.json"):
-        resp = client.get(path)
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["name"] == "brazil_power_v13_agent"
-        assert data["url"].endswith("/a2a/app")
-        skill_ids = {s["id"] for s in data["skills"]}
-        assert {
-            "brazil-power-model",
-            "brazil-tornado",
-            "brazil-bqml",
-            "brazil-lcoe",
-            "brazil-dcf",
-        }.issubset(skill_ids)
+    for removed_get in ("/.well-known/agent.json", "/.well-known/agent-card.json", "/a2a/app/.well-known/agent-card.json"):
+        assert client.get(removed_get).status_code == 404
+    assert client.post("/a2a/app", json={"jsonrpc": "2.0", "id": 1, "method": "message/send"}).status_code == 404
+    assert client.post("/v1/agent/chat", json={"prompt": "test"}).status_code == 404
 
 
 def test_remote_mcp_streamable_http_protocol() -> None:
@@ -63,31 +53,6 @@ def test_remote_mcp_streamable_http_protocol() -> None:
     result = call_resp.json()["result"]
     assert result["isError"] is False
     assert "General" in result["content"][0]["text"]
-
-
-def test_a2a_jsonrpc_task_execution() -> None:
-    """Verify POST /a2a/app executes Tornado sensitivity when prompted via A2A message/send."""
-    client = TestClient(create_app())
-    resp = client.post(
-        "/a2a/app",
-        json={
-            "jsonrpc": "2.0",
-            "id": "a2a-test-1",
-            "method": "message/send",
-            "params": {
-                "sessionId": "pytest_a2a_session",
-                "message": {
-                    "role": "user",
-                    "parts": [{"type": "text", "text": "Run Tornado IRR sensitivity for Natural Gas CCGT (_06_CF)"}],
-                },
-            },
-        },
-    )
-    assert resp.status_code == 200
-    payload = resp.json()["result"]
-    assert payload["status"]["state"] == "completed"
-    assert "run_tornado_sensitivity" in payload["metadata"]["executed_tools"]
-    assert "_06_CF" in payload["status"]["message"]["parts"][0]["text"]
 
 
 def test_rest_tool_invocation_and_download_security(tmp_path: Path, monkeypatch) -> None:
