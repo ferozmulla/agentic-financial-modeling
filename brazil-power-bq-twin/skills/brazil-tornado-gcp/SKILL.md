@@ -1,6 +1,6 @@
 ---
 name: brazil-tornado-gcp
-description: Shortcut workflow for the 21-point IRR Tornado Sensitivity analysis on the isolated BigQuery Digital Twin (brazil-power-bq-twin-mcp). Presents a 2-question card (1/2 Target Technology, 2/2 Scenario Variable Overrides in General!B5:N40), runs run_tornado_sensitivity against comm-model-mod.brazil_power_digital_twin, renders the Tornado EChart, saves the side-pane Artifact, and offers DB-synthesized 22-tab export.
+description: "Shortcut workflow for the 21-point IRR Tornado Sensitivity analysis on the isolated BigQuery Digital Twin (brazil-power-bq-twin-mcp). Presents a 2-question card (1/2 Target Technology, 2/2 Scenario Variable Overrides in General!B5:N40), runs run_tornado_sensitivity against comm-model-mod.brazil_power_digital_twin, renders the Tornado EChart, saves the side-pane Artifact, and offers DB-synthesized 22-tab export."
 ---
 
 # Brazil Power v13 (GCP) — 21-Point Tornado IRR Sensitivity (`/brazil-tornado-gcp`)

@@ -1,6 +1,6 @@
 ---
 name: brazil-lcoe-gcp
-description: Shortcut workflow for the 23-year (2024–2046) multi-technology LCOE horizon forecast on the isolated BigQuery Digital Twin (brazil-power-bq-twin-mcp). Presents a 2-question card (1/2 Trajectory Curve Source, 2/2 Scenario Variable Overrides in General!B5:N40), executes run_lcoe_horizon_forecast, renders the LCOE EChart, writes bq_twin_output3_lcoe_horizon.md, and offers 22-tab DB synthesis.
+description: "Shortcut workflow for the 23-year (2024-2046) multi-technology LCOE horizon forecast on the isolated BigQuery Digital Twin (brazil-power-bq-twin-mcp). Presents a 2-question card (1/2 Trajectory Curve Source, 2/2 Scenario Variable Overrides in General!B5:N40), executes run_lcoe_horizon_forecast, renders the LCOE EChart, writes bq_twin_output3_lcoe_horizon.md, and offers 22-tab DB synthesis."
 ---
 
 # Brazil Power v13 (GCP) — 23-Year Multi-Technology LCOE Horizon (`/brazil-lcoe-gcp`)

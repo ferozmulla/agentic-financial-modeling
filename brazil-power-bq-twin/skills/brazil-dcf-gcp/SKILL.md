@@ -1,6 +1,6 @@
 ---
 name: brazil-dcf-gcp
-description: Shortcut workflow for the 30-year (2024–2053) Project & Equity DCF cash-flow schedule and 10-point Thermal CVU/GF sweep on the isolated BigQuery Digital Twin (brazil-power-bq-twin-mcp). Presents a 2-question card (1/2 Target Technology, 2/2 Scenario Variable Overrides in General!B5:N40), runs run_dcf_cashflow_analysis, renders the cash-flow EChart, saves the full 30-year schedule, and offers 22-tab DB synthesis.
+description: "Shortcut workflow for the 30-year (2024-2053) Project & Equity DCF cash-flow schedule and 10-point Thermal CVU/GF sweep on the isolated BigQuery Digital Twin (brazil-power-bq-twin-mcp). Presents a 2-question card (1/2 Target Technology, 2/2 Scenario Variable Overrides in General!B5:N40), runs run_dcf_cashflow_analysis, renders the cash-flow EChart, saves the full 30-year schedule, and offers 22-tab DB synthesis."
 ---
 
 # Brazil Power v13 (GCP) — 30-Year Project & Equity DCF (`/brazil-dcf-gcp`)

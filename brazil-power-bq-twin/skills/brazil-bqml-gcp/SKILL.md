@@ -1,6 +1,6 @@
 ---
 name: brazil-bqml-gcp
-description: Shortcut workflow for the BigQuery ML ARIMA_PLUS 23-year trajectory refresh on the isolated BigQuery Digital Twin (brazil_power_digital_twin.vw_lt_forecasts via brazil-power-bq-twin-mcp). Presents a 2-question card (1/2 Target Curves, 2/2 Session Application & Downstream Chain), executes run_bqml_timeseries_refresh, renders ECharts, and writes bq_twin_lt_trajectories.md.
+description: "Shortcut workflow for the BigQuery ML ARIMA_PLUS 23-year trajectory refresh on the isolated BigQuery Digital Twin (brazil_power_digital_twin.vw_lt_forecasts via brazil-power-bq-twin-mcp). Presents a 2-question card (1/2 Target Curves, 2/2 Session Application & Downstream Chain), executes run_bqml_timeseries_refresh, renders ECharts, and writes bq_twin_lt_trajectories.md."
 ---
 
 # Brazil Power v13 (GCP) — `ARIMA_PLUS` 23-Year Trajectory Refresh (`/brazil-bqml-gcp`)
