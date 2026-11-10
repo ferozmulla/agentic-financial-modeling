@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import colorsys
 import json
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -10,6 +12,7 @@ from typing import Any
 
 import openpyxl
 from openpyxl.cell.cell import MergedCell
+from openpyxl.styles.colors import COLOR_INDEX
 from openpyxl.worksheet.formula import ArrayFormula
 
 from brazil_power_bq_twin.models import (
@@ -18,6 +21,22 @@ from brazil_power_bq_twin.models import (
     StyleRecord,
     WorksheetRecord,
     index_to_col_letter,
+)
+
+# Standard Office 2007+ theme palette in SpreadsheetML index order (lt1, dk1, lt2, dk2, accent1..6, hlink, folHlink)
+_DEFAULT_OFFICE_THEME: tuple[str, ...] = (
+    "FFFFFF",
+    "000000",
+    "EEECE1",
+    "1F497D",
+    "4F81BD",
+    "C0504D",
+    "9BBB59",
+    "8064A2",
+    "4BACC6",
+    "F79646",
+    "0000FF",
+    "800080",
 )
 
 
@@ -33,16 +52,105 @@ class CompiledTwinPayload:
     snapshot: BaselineTwinSnapshot
 
 
-def _safe_rgb(color_obj: Any) -> str | None:
+def _parse_workbook_theme_palette(loaded_theme: bytes | str | None) -> tuple[str, ...]:
+    """Parse `xl/theme/theme1.xml` into SpreadsheetML theme index order (swapping dk1/lt1 and dk2/lt2)."""
+    if not loaded_theme:
+        return _DEFAULT_OFFICE_THEME
+    try:
+        raw_bytes = loaded_theme.encode("utf-8") if isinstance(loaded_theme, str) else loaded_theme
+        root = ET.fromstring(raw_bytes)
+        ns = {"a": "http://schemas.openxmlformats.org/drawingml/2006/main"}
+        scheme = root.find(".//a:clrScheme", ns)
+        if scheme is None:
+            return _DEFAULT_OFFICE_THEME
+        by_tag: dict[str, str] = {}
+        for child in list(scheme):
+            tag = child.tag.split("}")[-1]
+            srgb = child.find("a:srgbClr", ns)
+            sys_c = child.find("a:sysClr", ns)
+            hex6 = (
+                srgb.attrib.get("val")
+                if srgb is not None
+                else (sys_c.attrib.get("lastClr") or sys_c.attrib.get("val") if sys_c is not None else None)
+            )
+            if hex6 and len(hex6) == 6:
+                by_tag[tag] = hex6.upper()
+        ordered_tags = (
+            "lt1",
+            "dk1",
+            "lt2",
+            "dk2",
+            "accent1",
+            "accent2",
+            "accent3",
+            "accent4",
+            "accent5",
+            "accent6",
+            "hlink",
+            "folHlink",
+        )
+        return tuple(by_tag.get(t, _DEFAULT_OFFICE_THEME[i]) for i, t in enumerate(ordered_tags))
+    except Exception:
+        return _DEFAULT_OFFICE_THEME
+
+
+def _apply_ooxml_tint(rgb6: str, tint: float) -> str:
+    """Apply OOXML HLS luminance tint (-1.0..+1.0) to a 6-char hex RGB color and return opaque 'FFRRGGBB'."""
+    if abs(tint) <= 1e-6:
+        return f"FF{rgb6.upper()}"
+    r = int(rgb6[0:2], 16) / 255.0
+    g = int(rgb6[2:4], 16) / 255.0
+    b = int(rgb6[4:6], 16) / 255.0
+    h, lum, sat = colorsys.rgb_to_hls(r, g, b)
+    if tint < 0.0:
+        lum = lum * (1.0 + tint)
+    else:
+        lum = lum * (1.0 - tint) + tint
+    lum = min(1.0, max(0.0, lum))
+    nr, ng, nb = colorsys.hls_to_rgb(h, lum, sat)
+    return f"FF{int(round(nr * 255)):02X}{int(round(ng * 255)):02X}{int(round(nb * 255)):02X}"
+
+
+def _resolve_color_argb(color_obj: Any, theme_palette: tuple[str, ...] = _DEFAULT_OFFICE_THEME) -> str | None:
+    """Resolve an OpenPyXL `Color` (`rgb`, `theme`+`tint`, or `indexed`) into an opaque 'FFRRGGBB' hex string."""
     if color_obj is None:
         return None
-    rgb = getattr(color_obj, "rgb", None)
-    if isinstance(rgb, str) and len(rgb) in (6, 8) and all(c in "0123456789ABCDEFabcdef" for c in rgb):
-        return rgb.upper()
+    ctype = getattr(color_obj, "type", None)
+    tint = float(getattr(color_obj, "tint", 0.0) or 0.0)
+
+    if ctype == "rgb":
+        rgb = getattr(color_obj, "rgb", None)
+        if isinstance(rgb, str) and all(c in "0123456789ABCDEFabcdef" for c in rgb):
+            up = rgb.upper()
+            if up == "00000000":
+                return None
+            hex6 = up[-6:] if len(up) in (6, 8) else None
+            if hex6:
+                return _apply_ooxml_tint(hex6, tint)
+        return None
+
+    if ctype == "theme":
+        t_idx = getattr(color_obj, "theme", None)
+        if isinstance(t_idx, int) and 0 <= t_idx < len(theme_palette):
+            return _apply_ooxml_tint(theme_palette[t_idx], tint)
+        return None
+
+    if ctype == "indexed":
+        idx = getattr(color_obj, "indexed", None)
+        # Indices >= 64 in Excel are system foreground/background auto colors (transparent/default)
+        if isinstance(idx, int) and 0 <= idx < min(64, len(COLOR_INDEX)):
+            raw_hex = str(COLOR_INDEX[idx]).upper()
+            if len(raw_hex) in (6, 8):
+                return _apply_ooxml_tint(raw_hex[-6:], tint)
+        return None
+
     return None
 
 
-def _extract_style_tuple(cell: Any) -> tuple[str, str, str, str, str]:
+def _extract_style_tuple(
+    cell: Any,
+    theme_palette: tuple[str, ...] = _DEFAULT_OFFICE_THEME,
+) -> tuple[str, str, str, str, str]:
     num_fmt = str(cell.number_format or "General")
     font = cell.font
     font_dict = {
@@ -50,17 +158,19 @@ def _extract_style_tuple(cell: Any) -> tuple[str, str, str, str, str]:
         "size": float(font.size) if getattr(font, "size", None) else 11.0,
         "bold": bool(getattr(font, "bold", False)),
         "italic": bool(getattr(font, "italic", False)),
-        "color_rgb": _safe_rgb(getattr(font, "color", None)),
+        "color_rgb": _resolve_color_argb(getattr(font, "color", None), theme_palette),
     }
     fill = cell.fill
     fill_type = getattr(fill, "fill_type", None)
+    sc_rgb = _resolve_color_argb(getattr(fill, "start_color", None), theme_palette)
+    ec_rgb = _resolve_color_argb(getattr(fill, "end_color", None), theme_palette)
     fill_dict = (
         {
             "fill_type": fill_type,
-            "start_color_rgb": _safe_rgb(getattr(fill, "start_color", None)),
-            "end_color_rgb": _safe_rgb(getattr(fill, "end_color", None)),
+            "start_color_rgb": sc_rgb,
+            "end_color_rgb": ec_rgb,
         }
-        if fill_type
+        if (fill_type and sc_rgb is not None)
         else {}
     )
     border = cell.border
@@ -71,7 +181,7 @@ def _extract_style_tuple(cell: Any) -> tuple[str, str, str, str, str]:
             if side is not None and getattr(side, "style", None):
                 border_dict[side_name] = {
                     "style": str(side.style),
-                    "color_rgb": _safe_rgb(getattr(side, "color", None)),
+                    "color_rgb": _resolve_color_argb(getattr(side, "color", None), theme_palette),
                 }
     align = cell.alignment
     align_dict = {
@@ -167,6 +277,7 @@ def compile_workbook_to_twin_payload(
     """Decompile a 22-tab `.xlsm`/`.xlsx` workbook into BigQuery Digital Twin rows and an in-memory snapshot."""
     wb_formulas = openpyxl.load_workbook(workbook_path, data_only=False, keep_vba=False)
     wb_values = openpyxl.load_workbook(workbook_path, data_only=True, keep_vba=False)
+    theme_palette = _parse_workbook_theme_palette(getattr(wb_formulas, "loaded_theme", None))
 
     style_index: dict[tuple[str, str, str, str, str], int] = {}
     default_tuple = (
@@ -198,7 +309,7 @@ def compile_workbook_to_twin_payload(
             for row_key, dim in ws_f.row_dimensions.items()
             if dim.height is not None
         }
-        tab_rgb = _safe_rgb(getattr(ws_f.sheet_properties, "tabColor", None))
+        tab_rgb = _resolve_color_argb(getattr(ws_f.sheet_properties, "tabColor", None), theme_palette)
         freeze_coord = str(ws_f.freeze_panes) if ws_f.freeze_panes else None
         visibility = str(ws_f.sheet_state or "visible")
 
@@ -234,9 +345,11 @@ def compile_workbook_to_twin_payload(
                 if isinstance(cell_f, MergedCell):
                     continue
                 raw_f_obj = cell_f.value
-                style_tup = _extract_style_tuple(cell_f)
-                has_non_default_style = style_tup != default_tuple
-                if raw_f_obj is None and not has_non_default_style:
+                if raw_f_obj is None and not cell_f.has_style:
+                    continue
+                style_tup = _extract_style_tuple(cell_f, theme_palette)
+                has_visual_box = style_tup[2] != "{}" or style_tup[3] != "{}"
+                if raw_f_obj is None and not has_visual_box:
                     continue
 
                 if style_tup not in style_index:

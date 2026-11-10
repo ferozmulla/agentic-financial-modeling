@@ -75,3 +75,51 @@ def test_synthesize_22tab_xlsx_from_database_rows_without_template(tmp_path: Pat
 
     with pytest.raises(ValueError):
         sanitize_filename("../evil.xlsx", ".xlsx")
+
+
+def test_theme_and_indexed_colors_never_render_black_fill(tmp_path: Path) -> None:
+    src_wb_path = _create_synthetic_22tab_workbook(tmp_path / "theme_colors.xlsx")
+    wb_edit = openpyxl.load_workbook(src_wb_path)
+    gen = wb_edit["General"]
+    # Simulate Excel theme=0 (white) solid fill on D10 and theme=0 tint=-0.15 (light gray) on C5
+    gen["D10"].fill = openpyxl.styles.PatternFill(
+        fill_type="solid",
+        fgColor=openpyxl.styles.colors.Color(theme=0, tint=0.0),
+    )
+    gen["C5"].fill = openpyxl.styles.PatternFill(
+        fill_type="solid",
+        fgColor=openpyxl.styles.colors.Color(rgb="FF002060"),
+    )
+    gen["C5"].font = openpyxl.styles.Font(
+        name="Arial",
+        size=9,
+        bold=True,
+        color=openpyxl.styles.colors.Color(indexed=9),
+    )
+    wb_edit["Version Control"]["B3"].fill = openpyxl.styles.PatternFill(
+        fill_type="solid",
+        fgColor=openpyxl.styles.colors.Color(theme=0, tint=-0.15),
+    )
+    wb_edit.save(src_wb_path)
+    wb_edit.close()
+
+    snap = compile_workbook_to_twin_payload(src_wb_path).snapshot
+    src_wb_path.unlink()
+
+    store = InMemoryDigitalTwinStore(snap)
+    xlsx_bytes, _ = synthesize_22tab_xlsx_bytes(snap, store.get_session_overlay("theme_s1"))
+    out_wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes))
+
+    # D10 must be opaque white FFFFFFFF (or unfilled), never 00000000 black
+    d10_rgb = out_wb["General"]["D10"].fill.start_color.rgb
+    assert d10_rgb in ("FFFFFFFF", None), f"Unexpected D10 fill rgb: {d10_rgb}"
+
+    # C5 indexed=9 font must be opaque white FFFFFFFF on dark navy FF002060
+    assert out_wb["General"]["C5"].fill.start_color.rgb == "FF002060"
+    assert out_wb["General"]["C5"].font.color.rgb == "FFFFFFFF"
+
+    # Version Control!B3 theme=0 tint=-0.15 must resolve to light gray FFD9D9D9
+    vc_b3_rgb = out_wb["Version Control"]["B3"].fill.start_color.rgb
+    assert vc_b3_rgb == "FFD9D9D9"
+    out_wb.close()
+

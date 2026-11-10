@@ -34,9 +34,21 @@ def sanitize_filename(raw_name: str | None, expected_ext: str) -> str:
     return candidate
 
 
+def _normalize_argb(val: Any) -> str | None:
+    if not isinstance(val, str):
+        return None
+    up = val.strip().upper()
+    if not up or up == "00000000":
+        return None
+    if len(up) in (6, 8) and all(c in "0123456789ABCDEF" for c in up):
+        return f"FF{up[-6:]}"
+    return None
+
+
 def _hydrate_openpyxl_style(style_rec: StyleRecord) -> tuple[str, Font, PatternFill | None, Border | None, Alignment | None]:
     f = style_rec.font or {}
-    font_color = Color(rgb=f["color_rgb"]) if f.get("color_rgb") else None
+    f_rgb = _normalize_argb(f.get("color_rgb"))
+    font_color = Color(rgb=f_rgb) if f_rgb else None
     font = Font(
         name=f.get("name", "Calibri"),
         size=float(f.get("size", 11.0)),
@@ -47,13 +59,13 @@ def _hydrate_openpyxl_style(style_rec: StyleRecord) -> tuple[str, Font, PatternF
 
     fl = style_rec.fill or {}
     fill: PatternFill | None = None
-    if fl.get("fill_type"):
-        sc = fl.get("start_color_rgb")
-        ec = fl.get("end_color_rgb")
+    sc = _normalize_argb(fl.get("start_color_rgb"))
+    ec = _normalize_argb(fl.get("end_color_rgb")) or sc
+    if fl.get("fill_type") and sc is not None:
         fill = PatternFill(
             fill_type=fl["fill_type"],
-            start_color=sc if sc else None,
-            end_color=ec if ec else None,
+            start_color=sc,
+            end_color=ec,
         )
 
     bd = style_rec.border or {}
@@ -62,8 +74,8 @@ def _hydrate_openpyxl_style(style_rec: StyleRecord) -> tuple[str, Font, PatternF
         sides: dict[str, Side] = {}
         for s_name in ("left", "right", "top", "bottom"):
             if s_name in bd and bd[s_name].get("style"):
-                c_rgb = bd[s_name].get("color_rgb")
-                sides[s_name] = Side(style=bd[s_name]["style"], color=c_rgb if c_rgb else None)
+                c_rgb = _normalize_argb(bd[s_name].get("color_rgb"))
+                sides[s_name] = Side(style=bd[s_name]["style"], color=c_rgb)
         if sides:
             border = Border(**sides)
 
