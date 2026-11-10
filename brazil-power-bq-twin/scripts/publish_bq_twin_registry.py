@@ -27,11 +27,11 @@ DEFAULT_LOCATION = "global"
 DEFAULT_CLOUD_RUN_URL = "https://brazil-power-bq-twin-mcp-1024543888590.us-central1.run.app"
 
 TWIN_SKILL_IDS: tuple[str, ...] = (
-    "bq-twin-power-model",
-    "bq-twin-tornado",
-    "bq-twin-bqml",
-    "bq-twin-lcoe",
-    "bq-twin-dcf",
+    "brazil-power-model-gcp",
+    "brazil-tornado-gcp",
+    "brazil-bqml-gcp",
+    "brazil-lcoe-gcp",
+    "brazil-dcf-gcp",
 )
 
 

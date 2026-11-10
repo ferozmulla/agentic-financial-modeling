@@ -1,9 +1,9 @@
 ---
-name: bq-twin-tornado
+name: brazil-tornado-gcp
 description: Shortcut workflow for the 21-point IRR Tornado Sensitivity analysis on the isolated BigQuery Digital Twin (brazil-power-bq-twin-mcp). Prompts for target technology (_01_CF.._12_CF) and optional overrides, runs run_tornado_sensitivity against comm-model-mod.brazil_power_digital_twin, renders the Tornado EChart, saves the side-pane Artifact, and offers DB-synthesized 22-tab export.
 ---
 
-# BigQuery Digital Twin — 21-Point Tornado IRR Sensitivity (`/bq-twin-tornado`)
+# Brazil Power v13 (GCP) — 21-Point Tornado IRR Sensitivity (`/brazil-tornado-gcp`)
 
 ## Backend Invocation (`brazil-power-bq-twin-mcp` or Direct Cloud Run HTTPS)
 If `brazil-power-bq-twin-mcp` MCP tools are in your active tool list, call them directly. Otherwise, invoke tools over HTTPS on the live Cloud Run service (`session_id="gmac_twin_session"`):

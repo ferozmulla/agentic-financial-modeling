@@ -1,9 +1,9 @@
 ---
-name: bq-twin-dcf
+name: brazil-dcf-gcp
 description: Shortcut workflow for the 30-year (2024–2053) Project & Equity DCF cash-flow schedule and 10-point Thermal CVU/GF sweep on the isolated BigQuery Digital Twin (brazil-power-bq-twin-mcp). Collects target technology (_01_CF.._12_CF) and overrides, runs run_dcf_cashflow_analysis, renders the cash-flow EChart, saves the full 30-year schedule, and offers 22-tab DB synthesis.
 ---
 
-# BigQuery Digital Twin — 30-Year Project & Equity DCF (`/bq-twin-dcf`)
+# Brazil Power v13 (GCP) — 30-Year Project & Equity DCF (`/brazil-dcf-gcp`)
 
 ## Backend Invocation (`brazil-power-bq-twin-mcp` or Direct Cloud Run HTTPS)
 If `brazil-power-bq-twin-mcp` MCP tools are in your active tool list, call them directly. Otherwise, invoke tools over HTTPS on the live Cloud Run service (`session_id="gmac_twin_session"`):

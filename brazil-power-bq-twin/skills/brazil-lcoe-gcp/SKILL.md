@@ -1,9 +1,9 @@
 ---
-name: bq-twin-lcoe
+name: brazil-lcoe-gcp
 description: Shortcut workflow for the 23-year (2024–2046) multi-technology LCOE horizon forecast on the isolated BigQuery Digital Twin (brazil-power-bq-twin-mcp). Prompts for scenario or BQML refresh choices, executes run_lcoe_horizon_forecast, renders the multi-series LCOE EChart, writes bq_twin_output3_lcoe_horizon.md, and offers 22-tab DB synthesis.
 ---
 
-# BigQuery Digital Twin — 23-Year Multi-Technology LCOE Horizon (`/bq-twin-lcoe`)
+# Brazil Power v13 (GCP) — 23-Year Multi-Technology LCOE Horizon (`/brazil-lcoe-gcp`)
 
 ## Backend Invocation (`brazil-power-bq-twin-mcp` or Direct Cloud Run HTTPS)
 If `brazil-power-bq-twin-mcp` MCP tools are in your active tool list, call them directly. Otherwise, invoke tools over HTTPS on the live Cloud Run service (`session_id="gmac_twin_session"`):

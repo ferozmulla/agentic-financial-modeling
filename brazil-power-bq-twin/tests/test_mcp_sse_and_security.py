@@ -17,11 +17,11 @@ from test_xlsm_compiler import _create_synthetic_22tab_workbook
 
 TWIN_ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_TWIN_SKILLS = (
-    "bq-twin-power-model",
-    "bq-twin-tornado",
-    "bq-twin-bqml",
-    "bq-twin-lcoe",
-    "bq-twin-dcf",
+    "brazil-power-model-gcp",
+    "brazil-tornado-gcp",
+    "brazil-bqml-gcp",
+    "brazil-lcoe-gcp",
+    "brazil-dcf-gcp",
 )
 
 

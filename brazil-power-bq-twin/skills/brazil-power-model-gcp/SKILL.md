@@ -1,9 +1,9 @@
 ---
-name: bq-twin-power-model
+name: brazil-power-model-gcp
 description: End-to-end guided workflow for the 100% Excel-free BigQuery Digital Twin of the Brazil Power Generation Model v13 (comm-model-mod.brazil_power_digital_twin via brazil-power-bq-twin-mcp). Publishes bq_twin_general_assumptions.md in the side-pane Artifact viewer, prompts for scenario overrides and target analyses, executes Tornado IRR, BQML ARIMA_PLUS, 23-Year LCOE, or 30-Year DCF against BigQuery, renders interactive ECharts, and synthesizes 22-tab .xlsx or Google Sheets deliverables purely from BigQuery rows.
 ---
 
-# Brazil Power v13 — BigQuery Digital Twin Orchestrator (`/bq-twin-power-model`)
+# Brazil Power v13 — GCP BigQuery Digital Twin Orchestrator (`/brazil-power-model-gcp`)
 
 ## Dual-Mode Backend Invocation (`brazil-power-bq-twin-mcp` or Direct Cloud Run HTTPS)
 

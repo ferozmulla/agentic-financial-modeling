@@ -13,11 +13,11 @@ TWIN_ROOT = Path(__file__).resolve().parents[1]
 MCP_SERVER_NAME = "brazil-power-bq-twin-mcp"
 DEFAULT_SSE_URL = "https://brazil-power-bq-twin-mcp-1024543888590.us-central1.run.app/mcp/sse"
 SKILL_IDS = (
-    "bq-twin-power-model",
-    "bq-twin-tornado",
-    "bq-twin-bqml",
-    "bq-twin-lcoe",
-    "bq-twin-dcf",
+    "brazil-power-model-gcp",
+    "brazil-tornado-gcp",
+    "brazil-bqml-gcp",
+    "brazil-lcoe-gcp",
+    "brazil-dcf-gcp",
 )
 
 
