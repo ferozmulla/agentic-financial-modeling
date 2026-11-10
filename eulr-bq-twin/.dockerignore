@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+runtime_exports/
+tests/
+docs/
+skills/
+scripts/
+*.xlsx
+*.xlsm

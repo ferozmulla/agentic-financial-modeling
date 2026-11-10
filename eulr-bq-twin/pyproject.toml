@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eulr-bq-twin"
+version = "1.0.0"
+description = "Isolated All-in-BigQuery Digital Twin & Remote MCP Server for EULR European Refining Equilibrium Model"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26.0",
+    "openpyxl>=3.1.2",
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "pydantic>=2.6.0",
+    "pydantic-settings>=2.2.0",
+    "google-auth>=2.28.0",
+    "google-api-python-client>=2.120.0",
+    "google-cloud-bigquery>=3.17.0",
+    "google-cloud-bigquery-storage>=2.24.0",
+    "pyarrow>=15.0.0",
+    "google-cloud-storage>=2.14.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
