@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1720 960" width="1720" height="960">
+  <defs>
+    <!-- Official Google Gemini Sparkle Gradient -->
+    <linearGradient id="geminiGrad" x1="12%" y1="12%" x2="88%" y2="88%">
+      <stop offset="0%" stop-color="#1C7EFF"/>
+      <stop offset="52%" stop-color="#9B72CB"/>
+      <stop offset="100%" stop-color="#D96570"/>
+    </linearGradient>
+    <linearGradient id="geminiSubtleBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f0f6ff"/>
+      <stop offset="100%" stop-color="#faf2ff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Solid White Background -->
+  <rect x="0" y="0" width="1720" height="960" fill="#ffffff"/>
+
+  <!-- ===================================================================== -->
+  <!-- LEFT PERIMETER: GEMINI AGENT WORKSPACE                                -->
+  <!-- ===================================================================== -->
+  <text x="20" y="52" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="15" font-weight="700" fill="#202124">Gemini Agent Workspace</text>
+  <text x="20" y="70" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#5f6368">Zero-Excel interactive modeling &amp; artifacts</text>
+  <rect x="18" y="82" width="250" height="846" rx="6" fill="#f8f9fa" stroke="#5f6368" stroke-width="1.2" stroke-dasharray="5,4"/>
+
+  <!-- Card 1: Gemini Agent (Official Gemini Sparkle Logo) -->
+  <rect x="32" y="104" width="222" height="192" rx="6" fill="#ffffff" stroke="#1a73e8" stroke-width="1.8"/>
+  <rect x="119" y="111" width="48" height="46" rx="10" fill="url(#geminiSubtleBg)" stroke="#dce6ff" stroke-width="1"/>
+  <g transform="translate(120.6,111.6) scale(0.70)">
+    <path fill="url(#geminiGrad)" d="M32,2 C32,18.57 45.43,32 62,32 C45.43,32 32,45.43 32,62 C32,45.43 18.57,32 2,32 C18.57,32 32,18.57 32,2 Z"/>
+  </g>
+  <text x="143" y="176" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="14.8" font-weight="700" fill="#202124">Gemini Agent</text>
+  <text x="143" y="194" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="12.2" font-weight="600" fill="#1a73e8">(Interactive Quantitative Analyst)</text>
+  <text x="143" y="215" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.1" font-weight="400" fill="#3c4043">2-Card Q&amp;A modals (ask_question)</text>
+  <text x="143" y="231" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.1" font-weight="400" fill="#3c4043">Inline Apache ECharts V5 (render_chart)</text>
+  <text x="143" y="247" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.1" font-weight="400" fill="#3c4043">Side-pane Artifacts (write_to_file)</text>
+  <text x="143" y="263" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.1" font-weight="400" fill="#3c4043">Multi-turn stateful session loop</text>
+  <text x="143" y="281" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.6" font-weight="500" fill="#5f6368">(Zero local Excel or Python required)</text>
+
+  <!-- Arrow: Gemini Agent <-> Domain Skills Suite -->
+  <path d="M 143.0,296.0 L 143.0,352.0" fill="none" stroke="#1a73e8" stroke-width="1.6" stroke-linejoin="round"/>
+  <polyline points="137.5,303.7 143.0,296.0 148.5,303.7" fill="none" stroke="#1a73e8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="137.5,344.3 143.0,352.0 148.5,344.3" fill="none" stroke="#1a73e8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="151" y="321" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.8" font-weight="500" fill="#1a73e8">Slash-command</text>
+  <text x="151" y="335" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.8" font-weight="500" fill="#1a73e8">skill routing</text>
+
+  <!-- Sub-Container: Domain Skills Suite (brazil-*-gcp) -->
+  <rect x="28" y="352" width="230" height="290" rx="6" fill="#eef4ff" stroke="#1a73e8" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <text x="143" y="372" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.8" font-weight="600" fill="#1a73e8">Domain Skills Suite (SKILL.md)</text>
+
+  <!-- Inner Card 2a: Master Orchestrator Skill -->
+  <rect x="38" y="384" width="210" height="110" rx="6" fill="#ffffff" stroke="#202124" stroke-width="1.4"/>
+  <text x="143" y="406" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="12.6" font-weight="700" fill="#1a73e8">/brazil-power-model-gcp</text>
+  <text x="143" y="424" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.2" font-weight="600" fill="#202124">Master 6-step guided workflow</text>
+  <text x="143" y="443" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.7" font-weight="400" fill="#3c4043">1. Instant General!B5:N40 artifact</text>
+  <text x="143" y="459" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.7" font-weight="400" fill="#3c4043">2. Card 1: Tech &amp; variable overrides</text>
+  <text x="143" y="475" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.7" font-weight="400" fill="#3c4043">3. Card 2: Multi-solver &amp; export</text>
+
+  <!-- Inner Card 2b: 4 Direct Shortcut Skills -->
+  <rect x="38" y="506" width="210" height="122" rx="6" fill="#ffffff" stroke="#202124" stroke-width="1.4"/>
+  <text x="143" y="528" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="12.6" font-weight="600" fill="#202124">4 Direct Shortcut Skills</text>
+  <text x="143" y="549" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.8" font-weight="400" fill="#3c4043">• /brazil-tornado-gcp (21-pt IRR)</text>
+  <text x="143" y="566" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.8" font-weight="400" fill="#3c4043">• /brazil-bqml-gcp (ARIMA_PLUS)</text>
+  <text x="143" y="583" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.8" font-weight="400" fill="#3c4043">• /brazil-lcoe-gcp (23-yr Output_3)</text>
+  <text x="143" y="600" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.8" font-weight="400" fill="#3c4043">• /brazil-dcf-gcp (30-yr DCF/CVU)</text>
+  <text x="143" y="617" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.2" font-weight="400" fill="#5f6368">(Native MCP + HTTPS JSON-RPC)</text>
+
+  <!-- Arrow: Skills Suite -> Synthesized Workbooks -->
+  <path d="M 143.0,642.0 L 143.0,702.0" fill="none" stroke="#0f9d58" stroke-width="1.6" stroke-linejoin="round"/>
+  <polyline points="137.5,694.3 143.0,702.0 148.5,694.3" fill="none" stroke="#0f9d58" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="151" y="669" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.8" font-weight="500" fill="#0f9d58">On-demand</text>
+  <text x="151" y="683" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.8" font-weight="500" fill="#0f9d58">22-tab export</text>
+
+  <!-- Card 3: Synthesized 22-Tab Workbook Deliverables -->
+  <rect x="32" y="702" width="222" height="208" rx="6" fill="#ffffff" stroke="#0f9d58" stroke-width="1.6"/>
+  <g transform="translate(125,710)">
+    <rect x="2" y="2" width="32" height="32" rx="4" fill="#0f9d58"/>
+    <rect x="6" y="7" width="24" height="5" rx="1" fill="#ffffff"/>
+    <rect x="6" y="15" width="7" height="4" fill="#ffffff"/>
+    <rect x="15" y="15" width="7" height="4" fill="#ffffff"/>
+    <rect x="24" y="15" width="6" height="4" fill="#ffffff"/>
+    <rect x="6" y="21" width="7" height="4" fill="#ffffff"/>
+    <rect x="15" y="21" width="7" height="4" fill="#ffffff"/>
+    <rect x="24" y="21" width="6" height="4" fill="#ffffff"/>
+    <rect x="6" y="27" width="7" height="4" fill="#ffffff"/>
+    <rect x="15" y="27" width="7" height="4" fill="#ffffff"/>
+    <rect x="24" y="27" width="6" height="4" fill="#ffffff"/>
+  </g>
+  <text x="143" y="764" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="13.8" font-weight="600" fill="#202124">Synthesized Workbooks</text>
+  <text x="143" y="782" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="12.5" font-weight="600" fill="#0f9d58">(22-Tab .xlsx &amp; Google Sheets)</text>
+  <text x="143" y="803" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.0" font-weight="400" fill="#3c4043">100% DB-synthesized (0 templates)</text>
+  <text x="143" y="819" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.0" font-weight="400" fill="#3c4043">34,959 cells &amp; live =Formula strings</text>
+  <text x="143" y="835" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.0" font-weight="400" fill="#3c4043">175 OOXML styles &amp; theme ARGB fills</text>
+  <text x="143" y="851" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.0" font-weight="400" fill="#3c4043">Merged borders, col spans &amp; zoom</text>
+  <text x="143" y="867" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.0" font-weight="400" fill="#3c4043">Sanitized workbook &amp; solver_* names</text>
+  <text x="143" y="886" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.8" font-weight="500" fill="#0f9d58">(Overlays active session deltas)</text>
+
+  <!-- ===================================================================== -->
+  <!-- RIGHT PERIMETER: GOOGLE CLOUD PLATFORM                                -->
+  <!-- ===================================================================== -->
+  <rect x="434" y="18" width="1268" height="924" rx="6" fill="#1a73e8" stroke="#1f2124" stroke-width="1.5"/>
+  <text x="454" y="49" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="22" fill="#ffffff"><tspan font-weight="700">Google</tspan> <tspan font-weight="400">Cloud</tspan></text>
+  <rect x="450" y="64" width="1236" height="862" fill="#ffffff" stroke="#1f2124" stroke-width="1.2"/>
+
+  <rect x="466" y="84" width="1204" height="822" rx="6" fill="#cee4ff" stroke="#3c4043" stroke-width="1.1"/>
+  <text x="1068" y="116" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="17.5" font-weight="600" fill="#202124">GCP-commodity-modeling-project (comm-model-mod / us-central1)</text>
+
+  <!-- Front door MCP & Registry perimeter -->
+  <text x="484" y="154" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="12" font-weight="600" fill="#202124">Front door MCP &amp; registry perimeter</text>
+  <rect x="482" y="162" width="268" height="724" rx="6" fill="none" stroke="#3c4043" stroke-width="1.2" stroke-dasharray="5,4"/>
+
+  <!-- Agent Registry Card -->
+  <rect x="496" y="190" width="240" height="122" rx="6" fill="#ffffff" stroke="#202124" stroke-width="1.5"/>
+  <g transform="translate(510,224)">
+    <polygon points="22,2 40,12 40,32 22,42 4,32 4,12" fill="none" stroke="#4285f4" stroke-width="3.2" stroke-linejoin="round"/>
+    <circle cx="22" cy="14" r="4" fill="#ea4335"/>
+    <circle cx="14" cy="27" r="4" fill="#fbbc04"/>
+    <circle cx="30" cy="27" r="4" fill="#34a853"/>
+    <line x1="22" y1="18" x2="16" y2="24" stroke="#5f6368" stroke-width="2"/>
+    <line x1="22" y1="18" x2="28" y2="24" stroke="#5f6368" stroke-width="2"/>
+    <line x1="18" y1="27" x2="26" y2="27" stroke="#5f6368" stroke-width="2"/>
+  </g>
+  <text x="568" y="223" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="14.0" font-weight="600" fill="#202124">Agent Registry</text>
+  <text x="568" y="243" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.2" font-weight="500" fill="#1a73e8">MCP &amp; Skills Catalog</text>
+  <text x="568" y="261" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.0" font-weight="400" fill="#3c4043">7-tool MCP server spec</text>
+  <text x="568" y="276" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.0" font-weight="400" fill="#3c4043">5 active brazil-*-gcp skills</text>
+  <text x="568" y="291" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.6" font-weight="400" fill="#5f6368">locations/global governance</text>
+
+  <!-- Internal vertical link: Agent Registry <-> Cloud Run -->
+  <path d="M 616.0,312.0 L 616.0,424.0" fill="none" stroke="#1a73e8" stroke-width="1.5" stroke-dasharray="5,4"/>
+  <polyline points="610.5,319.7 616.0,312.0 621.5,319.7" fill="none" stroke="#1a73e8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="625" y="364" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.8" font-weight="500" fill="#1a73e8">Registers /mcp</text>
+  <text x="625" y="378" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.8" font-weight="500" fill="#1a73e8">&amp; tool schemas</text>
+
+  <!-- Cloud Run Remote MCP Server Card -->
+  <rect x="496" y="424" width="240" height="136" rx="6" fill="#ffffff" stroke="#202124" stroke-width="1.5"/>
+  <g transform="translate(508.00,464.00) scale(0.10547)">
+    <path fill="#fbbc04" d="M144.4,272c-6.4,0-12.4-3.8-14.9-10.1L55.4,75.9c-3.3-8.2.7-17.5,8.9-20.8,8.2-3.3,17.5.7,20.8,8.9l74.2,186c3.3,8.2-.7,17.5-8.9,20.8-1.9.8-3.9,1.1-5.9,1.1h-.1Z"/>
+    <path fill="#ea4335" d="M256,272c-6.4,0-12.4-3.8-14.9-10.1l-74.1-186c-2.6-6.6-.6-14.1,5-18.5s13.4-4.5,19.2-.4l260.1,186c7.2,5.1,8.9,15.1,3.7,22.3s-15.1,8.9-22.3,3.7L216.9,114.7l54,135.3c3.3,8.2-.7,17.5-8.9,20.8-1.9.8-4,1.1-5.9,1.1h-.1Z"/>
+    <path fill="#34a853" d="M127.2,256l-72,180c-3.3,8.2.7,17.5,8.9,20.8,3.1,1.2,4,1.1,5.9,1.1,6.3,0,12.4-3.8,14.9-10.1l74.4-186c.8-2,1.1-4,1.1-5.9h-33.2Z"/>
+    <path fill="#4285f4" d="M414.5,256l-197.7,141.2,54.1-135.3c.8-2,1.1-4,1.1-5.9h-33.2l-72,180c-2.6,6.6-.6,14.1,5,18.5,2.9,2.3,6.4,3.4,9.9,3.4s6.5-1,9.3-3l260.4-186c4.4-3.1,6.7-8,6.7-13h-43.6Z"/>
+  </g>
+  <text x="568" y="454" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="14.2" font-weight="600" fill="#202124">Cloud Run</text>
+  <text x="568" y="472" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.2" font-weight="600" fill="#1a73e8">brazil-power-bq-twin-mcp</text>
+  <text x="568" y="491" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.0" font-weight="400" fill="#3c4043">Remote MCP (/mcp/sse &amp; /mcp)</text>
+  <text x="568" y="507" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.0" font-weight="400" fill="#3c4043">Vectorized Solver &amp; ECharts</text>
+  <text x="568" y="523" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.0" font-weight="400" fill="#3c4043">Pure DB .xlsx Synthesizer</text>
+  <text x="568" y="540" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.6" font-weight="400" fill="#5f6368">/v1/exports/* &amp; /v1/artifacts/*</text>
+
+  <!-- ===================================================================== -->
+  <!-- PILLAR A: ALL-IN-BIGQUERY DIGITAL TWIN & BIGQUERY ML PERIMETER        -->
+  <!-- ===================================================================== -->
+  <text x="798" y="154" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="12" font-weight="600" fill="#202124">Pillar A: All-in-BigQuery 22-tab Digital Twin &amp; BigQuery ML forecasting perimeter</text>
+  <rect x="796" y="162" width="854" height="330" rx="6" fill="none" stroke="#3c4043" stroke-width="1.2" stroke-dasharray="5,4"/>
+
+  <!-- Row 1 Left of Pillar A: BigQuery Digital Twin Baseline -->
+  <rect x="940" y="190" width="304" height="118" rx="6" fill="#ffffff" stroke="#202124" stroke-width="1.5"/>
+  <g transform="translate(954.00,222.00) scale(0.10547)">
+    <path fill="#34a853" d="M311.9,418.9c-8.8,0-16-7.2-16-16v-145.8c0-8.8,7.2-16,16-16s16,7.2,16,16v145.8c0,8.8-7.2,16-16,16h0Z"/>
+    <path fill="#34a853" d="M147.6,418.9c-8.8,0-16-7.2-16-16v-200.5c0-8.8,7.2-16,16-16s16,7.2,16,16v200.5c0,8.8-7.2,16-16,16Z"/>
+    <path fill="#34a853" d="M229.8,437.4c-8.8,0-16-7.2-16-16V147.6c0-8.8,7.2-16,16-16s16,7.2,16,16v273.7c0,8.8-7.2,16-16,16h0Z"/>
+    <path fill="#fbbc04" d="M229.8,437.4c-114.5,0-207.6-93.1-207.6-207.6h32c0,96.8,78.8,175.6,175.6,175.6s175.6-78.8,175.6-175.6h32c0,114.5-93.1,207.6-207.6,207.6h0Z"/>
+    <path fill="#ea4335" d="M437.4,229.8h-32c0-96.8-78.8-175.6-175.6-175.6S54.1,132.9,54.1,229.8H22.1c0-114.5,93.2-207.7,207.7-207.7s207.6,93.1,207.6,207.6h0Z"/>
+    <path fill="#4285f4" d="M487.4,464.8l-100-100c32.3-37.6,49.9-85,49.9-135.1s-21.6-107.6-60.8-146.8l-22.6,22.6c33.2,33.2,51.4,77.3,51.4,124.2s-18.3,90.9-51.5,124.1h0c-5,5-7.5,7-11.8,10.8l122.8,122.8c3.1,3.1,7.2,4.7,11.3,4.7h0c4.1,0,8.2-1.6,11.3-4.7,6.2-6.2,6.2-16.4,0-22.6h0Z"/>
+  </g>
+  <text x="1016" y="222" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="14.2" font-weight="600" fill="#202124">BigQuery Digital Twin</text>
+  <text x="1016" y="242" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.2" font-weight="500" fill="#1a73e8">brazil_power_digital_twin</text>
+  <text x="1016" y="260" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.1" font-weight="400" fill="#3c4043">dt_worksheets (22) &amp; dt_styles (175)</text>
+  <text x="1016" y="276" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.1" font-weight="400" fill="#3c4043">dt_cells (34,959) &amp; workbook_versions</text>
+  <text x="1016" y="292" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.6" font-weight="400" fill="#5f6368">Clustered by workbook, sheet &amp; row</text>
+
+  <!-- Row 1 Right of Pillar A: 22-Tab Relational Twin Callout -->
+  <rect x="1318" y="190" width="310" height="118" rx="6" fill="#f8f9fa" stroke="#1a73e8" stroke-width="1.3" stroke-dasharray="4,3"/>
+  <text x="1332" y="212" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="12.2" font-weight="600" fill="#1a73e8">22-Tab Relational Twin (Zero Excel)</text>
+  <line x1="1332" y1="219" x2="1614" y2="219" stroke="#dadce0" stroke-width="1"/>
+  <text x="1332" y="239" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.1" fill="#202124"><tspan font-weight="600">1. Cell Grid:</tspan> 34,959 A1 cells &amp; =Formulas</text>
+  <text x="1332" y="258" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.1" fill="#202124"><tspan font-weight="600">2. Visuals:</tspan> Theme ARGB, merges &amp; zoom</text>
+  <text x="1332" y="277" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.1" fill="#202124"><tspan font-weight="600">3. Tech Models:</tspan> _01_CF.._12_CF &amp; solver_*</text>
+  <text x="1332" y="295" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.5" fill="#5f6368">(Decompiled once offline via load_xlsm_to_bq.py)</text>
+  <line x1="1244" y1="249" x2="1318" y2="249" stroke="#1a73e8" stroke-width="1.5" stroke-dasharray="3,3"/>
+
+  <!-- Row 2 Left of Pillar A: BigQuery ML (ARIMA_PLUS) -->
+  <rect x="940" y="350" width="304" height="118" rx="6" fill="#ffffff" stroke="#202124" stroke-width="1.5"/>
+  <g transform="translate(954.00,382.00) scale(0.10547)">
+    <path fill="#34a853" d="M311.9,418.9c-8.8,0-16-7.2-16-16v-145.8c0-8.8,7.2-16,16-16s16,7.2,16,16v145.8c0,8.8-7.2,16-16,16h0Z"/>
+    <path fill="#34a853" d="M147.6,418.9c-8.8,0-16-7.2-16-16v-200.5c0-8.8,7.2-16,16-16s16,7.2,16,16v200.5c0,8.8-7.2,16-16,16Z"/>
+    <path fill="#34a853" d="M229.8,437.4c-8.8,0-16-7.2-16-16V147.6c0-8.8,7.2-16,16-16s16,7.2,16,16v273.7c0,8.8-7.2,16-16,16h0Z"/>
+    <path fill="#fbbc04" d="M229.8,437.4c-114.5,0-207.6-93.1-207.6-207.6h32c0,96.8,78.8,175.6,175.6,175.6s175.6-78.8,175.6-175.6h32c0,114.5-93.1,207.6-207.6,207.6h0Z"/>
+    <path fill="#ea4335" d="M437.4,229.8h-32c0-96.8-78.8-175.6-175.6-175.6S54.1,132.9,54.1,229.8H22.1c0-114.5,93.2-207.7,207.7-207.7s207.6,93.1,207.6,207.6h0Z"/>
+    <path fill="#4285f4" d="M487.4,464.8l-100-100c32.3-37.6,49.9-85,49.9-135.1s-21.6-107.6-60.8-146.8l-22.6,22.6c33.2,33.2,51.4,77.3,51.4,124.2s-18.3,90.9-51.5,124.1h0c-5,5-7.5,7-11.8,10.8l122.8,122.8c3.1,3.1,7.2,4.7,11.3,4.7h0c4.1,0,8.2-1.6,11.3-4.7,6.2-6.2,6.2-16.4,0-22.6h0Z"/>
+  </g>
+  <text x="1016" y="382" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="14.2" font-weight="600" fill="#202124">BigQuery ML</text>
+  <text x="1016" y="402" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.2" font-weight="500" fill="#0f9d58">bqml_dt_lt_forecast (ARIMA_PLUS)</text>
+  <text x="1016" y="420" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.1" font-weight="400" fill="#3c4043">dt_lt_trajectories &amp; vw_lt_forecasts</text>
+  <text x="1016" y="436" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.1" font-weight="400" fill="#3c4043">23-yr curves: CAPEX, FUEL &amp; CF</text>
+  <text x="1016" y="452" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.6" font-weight="400" fill="#5f6368">Drives Output_3!B8:J31 horizon solves</text>
+
+  <!-- Row 2 Right of Pillar A: 7 MCP Tools Callout -->
+  <rect x="1318" y="350" width="310" height="118" rx="6" fill="#f8f9fa" stroke="#0f9d58" stroke-width="1.3" stroke-dasharray="4,3"/>
+  <text x="1332" y="372" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="12.2" font-weight="600" fill="#0f9d58">7 MCP Quantitative &amp; Export Tools</text>
+  <line x1="1332" y1="379" x2="1614" y2="379" stroke="#dadce0" stroke-width="1"/>
+  <text x="1332" y="399" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.0" fill="#202124"><tspan font-weight="600">1. State:</tspan> get / update_session_assumptions</text>
+  <text x="1332" y="418" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.0" fill="#202124"><tspan font-weight="600">2. Sweeps:</tspan> 21-pt Tornado &amp; 23-yr LCOE</text>
+  <text x="1332" y="437" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.0" fill="#202124"><tspan font-weight="600">3. DCF &amp; ML:</tspan> 30-yr DCF/CVU &amp; BQML refresh</text>
+  <text x="1332" y="455" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.0" fill="#202124"><tspan font-weight="600">4. Synthesis:</tspan> export_full_22tab_workbook</text>
+  <line x1="1244" y1="409" x2="1318" y2="409" stroke="#0f9d58" stroke-width="1.5" stroke-dasharray="3,3"/>
+
+  <!-- ===================================================================== -->
+  <!-- PILLAR B: SPARSE SCENARIO OVERLAY, 4-Ws AUDIT & SYNTHESIS PERIMETER   -->
+  <!-- ===================================================================== -->
+  <text x="798" y="528" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="12" font-weight="600" fill="#202124">Pillar B: Sparse scenario delta overlay, 4-Ws audit &amp; workbook synthesis perimeter</text>
+  <rect x="796" y="536" width="854" height="350" rx="6" fill="none" stroke="#3c4043" stroke-width="1.2" stroke-dasharray="5,4"/>
+
+  <!-- Row 1 Left of Pillar B: BigQuery Scenario Overlay & 4-Ws Audit -->
+  <rect x="940" y="564" width="304" height="122" rx="6" fill="#ffffff" stroke="#202124" stroke-width="1.5"/>
+  <g transform="translate(954.00,598.00) scale(0.10547)">
+    <path fill="#34a853" d="M311.9,418.9c-8.8,0-16-7.2-16-16v-145.8c0-8.8,7.2-16,16-16s16,7.2,16,16v145.8c0,8.8-7.2,16-16,16h0Z"/>
+    <path fill="#34a853" d="M147.6,418.9c-8.8,0-16-7.2-16-16v-200.5c0-8.8,7.2-16,16-16s16,7.2,16,16v200.5c0,8.8-7.2,16-16,16Z"/>
+    <path fill="#34a853" d="M229.8,437.4c-8.8,0-16-7.2-16-16V147.6c0-8.8,7.2-16,16-16s16,7.2,16,16v273.7c0,8.8-7.2,16-16,16h0Z"/>
+    <path fill="#fbbc04" d="M229.8,437.4c-114.5,0-207.6-93.1-207.6-207.6h32c0,96.8,78.8,175.6,175.6,175.6s175.6-78.8,175.6-175.6h32c0,114.5-93.1,207.6-207.6,207.6h0Z"/>
+    <path fill="#ea4335" d="M437.4,229.8h-32c0-96.8-78.8-175.6-175.6-175.6S54.1,132.9,54.1,229.8H22.1c0-114.5,93.2-207.7,207.7-207.7s207.6,93.1,207.6,207.6h0Z"/>
+    <path fill="#4285f4" d="M487.4,464.8l-100-100c32.3-37.6,49.9-85,49.9-135.1s-21.6-107.6-60.8-146.8l-22.6,22.6c33.2,33.2,51.4,77.3,51.4,124.2s-18.3,90.9-51.5,124.1h0c-5,5-7.5,7-11.8,10.8l122.8,122.8c3.1,3.1,7.2,4.7,11.3,4.7h0c4.1,0,8.2-1.6,11.3-4.7,6.2-6.2,6.2-16.4,0-22.6h0Z"/>
+  </g>
+  <text x="1016" y="596" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="14.0" font-weight="600" fill="#202124">BigQuery Overlay &amp; Audit</text>
+  <text x="1016" y="616" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.2" font-weight="400" fill="#3c4043">dt_scenario_deltas (sparse cell deltas)</text>
+  <text x="1016" y="632" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.2" font-weight="400" fill="#3c4043">COALESCE(session_delta, baseline_cell)</text>
+  <text x="1016" y="648" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.2" font-weight="400" fill="#3c4043">dt_audit_events (immutable 4-Ws log)</text>
+  <text x="1016" y="666" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.8" font-weight="500" fill="#1a73e8">(Per-session isolation + tombstones)</text>
+
+  <!-- Row 1 Right of Pillar B: 4-Ws Scenario Governance Callout -->
+  <rect x="1318" y="564" width="310" height="122" rx="6" fill="#f8f9fa" stroke="#3c4043" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <text x="1332" y="586" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="12.2" font-weight="600" fill="#1a73e8">4-Ws Scenario Audit &amp; Isolation</text>
+  <line x1="1332" y1="593" x2="1614" y2="593" stroke="#dadce0" stroke-width="1"/>
+  <text x="1332" y="612" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.1" fill="#202124"><tspan font-weight="600">1st W:</tspan> What element (Sheet!Cell coord)?</text>
+  <text x="1332" y="631" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.1" fill="#202124"><tspan font-weight="600">2nd W:</tspan> What delta (Before -&gt; After)?</text>
+  <text x="1332" y="650" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.1" fill="#202124"><tspan font-weight="600">3rd W:</tspan> Which session_id &amp; principal?</text>
+  <text x="1332" y="669" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.1" fill="#202124"><tspan font-weight="600">4th W:</tspan> When &amp; why (UTC + MCP tool)?</text>
+  <line x1="1244" y1="625" x2="1318" y2="625" stroke="#1a73e8" stroke-width="1.4" stroke-dasharray="3,3"/>
+
+  <!-- Row 2 Left of Pillar B: Cloud Storage & Google Sheets API v4 -->
+  <rect x="940" y="736" width="304" height="126" rx="6" fill="#ffffff" stroke="#202124" stroke-width="1.5"/>
+  <g transform="translate(954.00,770.00) scale(0.10547)">
+    <path fill="#34a853" d="M442,277.9H70c-8.8,0-16,7.2-16,16v148.1c0,8.8,7.2,16,16,16h107.2c1.5.5,3.1.7,4.8.7s3.3-.3,4.8-.7h255.2c8.8,0,16-7.2,16-16v-148.1c0-8.8-7.2,16-16-16ZM86,309.9h80v116.1h-80v-116.1ZM426,425.9h-228v-116.1h228v116.1Z"/>
+    <path fill="#fbbc04" d="M442,54H70c-8.8,0-16,7.2-16,16v148.8c0,8.8,7.2,16,16,16h372c8.8,0,16-7.2,16-16V70c0-8.8-7.2-16-16-16ZM86,86h80v116.8h-80v-116.8ZM426,202.8h-228v-116.8h228v116.8Z"/>
+    <path fill="#ea4335" d="M442,234.8h-16V86H54v-16c0-8.8,7.2-16,16-16h372c8.8,0,16,7.2,16,16v148.8c0,8.8-7.2,16-16,16Z"/>
+    <path fill="#4285f4" d="M442,457.9h-16v-148.1H54v-16c0-8.8,7.2-16,16-16h372c8.8,0,16,7.2,16,16v148.1c0,8.8-7.2,16-16,16Z"/>
+    <circle fill="#ea4335" cx="349" cy="144.4" r="37"/>
+    <circle fill="#4285f4" cx="349" cy="367.9" r="37"/>
+  </g>
+  <text x="1016" y="769" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="14.0" font-weight="600" fill="#202124">Cloud Storage &amp; Sheets v4</text>
+  <text x="1016" y="789" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.2" font-weight="400" fill="#3c4043">comm-model-mod-sheets-mod-artifacts</text>
+  <text x="1016" y="805" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.2" font-weight="400" fill="#3c4043">bq_twin_exports/*.xlsx &amp; *.md replicas</text>
+  <text x="1016" y="821" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.2" font-weight="400" fill="#3c4043">Google Sheets API v4 22-tab creation</text>
+  <text x="1016" y="839" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.8" font-weight="500" fill="#0f9d58">(nosniff &amp; sanitized download stream)</text>
+
+  <!-- Row 2 Right of Pillar B: Database-to-Workbook Synthesis Callout -->
+  <rect x="1318" y="736" width="310" height="126" rx="6" fill="#f8f9fa" stroke="#0f9d58" stroke-width="1.3" stroke-dasharray="4,3"/>
+  <text x="1332" y="758" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="12.2" font-weight="600" fill="#0f9d58">Database-to-Workbook Synthesis</text>
+  <line x1="1332" y1="765" x2="1614" y2="765" stroke="#dadce0" stroke-width="1"/>
+  <text x="1332" y="785" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.1" fill="#202124"><tspan font-weight="600">1. Zero Templates:</tspan> Hydrated from BQ rows</text>
+  <text x="1332" y="804" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.1" fill="#202124"><tspan font-weight="600">2. OOXML Fidelity:</tspan> ARGB, borders &amp; spans</text>
+  <text x="1332" y="823" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.1" fill="#202124"><tspan font-weight="600">3. Live Math:</tspan> Untouched =Formulas kept</text>
+  <text x="1332" y="842" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.1" fill="#202124"><tspan font-weight="600">4. Dual Output:</tspan> .xlsx file &amp; Google Sheet</text>
+  <line x1="1244" y1="799" x2="1318" y2="799" stroke="#0f9d58" stroke-width="1.4" stroke-dasharray="3,3"/>
+
+  <!-- ===================================================================== -->
+  <!-- CROSS-PERIMETER & INTERNAL DATA FLOW ARROWS (ZERO CROSSINGS)          -->
+  <!-- ===================================================================== -->
+
+  <!-- 1. Agent Registry (x=496, y=212) -> Gemini Agent (x=254, y=142) -->
+  <path d="M 496.0,212.0 L 408.0,212.0 L 408.0,142.0 L 254.0,142.0" fill="none" stroke="#1a73e8" stroke-width="1.6" stroke-dasharray="6,4" stroke-linejoin="round"/>
+  <polyline points="261.7,136.5 254.0,142.0 261.7,147.5" fill="none" stroke="#1a73e8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="351" y="116" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.8" font-weight="600" fill="#1a73e8">Agent Registry discovery</text>
+  <text x="351" y="131" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.0" font-weight="400" fill="#3c4043">(MCP spec &amp; 5 brazil-*-gcp skills)</text>
+
+  <!-- 2. Gemini Agent (x=254, y=246) <-> Cloud Run Remote MCP (x=496, y=492) -->
+  <path d="M 254.0,246.0 L 351.0,246.0 L 351.0,492.0 L 496.0,492.0" fill="none" stroke="#202124" stroke-width="1.8" stroke-linejoin="round"/>
+  <polyline points="261.7,240.5 254.0,246.0 261.7,251.5" fill="none" stroke="#202124" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="488.3,486.5 496.0,492.0 488.3,497.5" fill="none" stroke="#202124" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="351" y="514" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.0" font-weight="600" fill="#202124">MCP over SSE / HTTP</text>
+  <text x="351" y="529" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.2" font-weight="400" fill="#3c4043">(/mcp/sse &amp; JSON-RPC, 7 tools)</text>
+
+  <!-- 3. Cloud Run (x=736, y=452) <-> BigQuery Digital Twin Baseline (x=940, y=249) -->
+  <path d="M 736.0,452.0 L 760.0,452.0 L 760.0,249.0 L 940.0,249.0" fill="none" stroke="#202124" stroke-width="1.6" stroke-linejoin="round"/>
+  <polyline points="743.7,446.5 736.0,452.0 743.7,457.5" fill="none" stroke="#202124" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="932.3,243.5 940.0,249.0 932.3,254.5" fill="none" stroke="#202124" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="866" y="224" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.0" font-weight="500" fill="#202124">Parameterized SQL</text>
+  <text x="866" y="239" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.6" font-weight="400" fill="#3c4043">(Hydrate 22-tab snapshot)</text>
+
+  <!-- 4. Cloud Run (x=736, y=476) <-> BigQuery ML (x=940, y=409) -->
+  <path d="M 736.0,476.0 L 778.0,476.0 L 778.0,409.0 L 940.0,409.0" fill="none" stroke="#202124" stroke-width="1.6" stroke-linejoin="round"/>
+  <polyline points="743.7,470.5 736.0,476.0 743.7,481.5" fill="none" stroke="#202124" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="932.3,403.5 940.0,409.0 932.3,414.5" fill="none" stroke="#202124" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="866" y="384" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.0" font-weight="500" fill="#202124">ML.FORECAST refresh</text>
+  <text x="866" y="399" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.6" font-weight="400" fill="#3c4043">(vw_lt_forecasts)</text>
+
+  <!-- 5. Cloud Run (x=736, y=506) <-> BigQuery Scenario Overlay & Audit (x=940, y=625) -->
+  <path d="M 736.0,506.0 L 778.0,506.0 L 778.0,625.0 L 940.0,625.0" fill="none" stroke="#202124" stroke-width="1.6" stroke-linejoin="round"/>
+  <polyline points="743.7,500.5 736.0,506.0 743.7,511.5" fill="none" stroke="#202124" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="932.3,619.5 940.0,625.0 932.3,630.5" fill="none" stroke="#202124" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="866" y="598" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.0" font-weight="500" fill="#202124">Sparse session deltas</text>
+  <text x="866" y="613" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.6" font-weight="400" fill="#3c4043">&amp; 4-Ws audit_events</text>
+
+  <!-- 6. Cloud Run (x=736, y=534) -> Cloud Storage & Sheets v4 (x=940, y=786) -->
+  <path d="M 736.0,534.0 L 760.0,534.0 L 760.0,786.0 L 940.0,786.0" fill="none" stroke="#202124" stroke-width="1.6" stroke-linejoin="round"/>
+  <polyline points="932.3,780.5 940.0,786.0 932.3,791.5" fill="none" stroke="#202124" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="862" y="758" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="11.0" font-weight="500" fill="#202124">Upload synthesized</text>
+  <text x="862" y="773" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.6" font-weight="400" fill="#3c4043">.xlsx, .md &amp; Sheets v4</text>
+
+  <!-- 7. Cloud Storage & Sheets v4 (x=940, y=842) -> Synthesized Workbooks (x=254, y=842) -->
+  <path d="M 940.0,842.0 L 254.0,842.0" fill="none" stroke="#0f9d58" stroke-width="1.8" stroke-linejoin="round"/>
+  <polyline points="261.7,836.5 254.0,842.0 261.7,847.5" fill="none" stroke="#0f9d58" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="351" y="818" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.8" font-weight="600" fill="#0f9d58">HTTPS .xlsx &amp; Sheets API v4</text>
+  <text x="351" y="833" text-anchor="middle" font-family="Ubuntu Sans, DejaVu Sans, Arial, sans-serif" font-size="10.1" font-weight="400" fill="#3c4043">(/v1/exports/* &amp; Sheets sync)</text>
+</svg>
