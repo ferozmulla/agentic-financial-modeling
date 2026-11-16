@@ -52,6 +52,11 @@ other models/*.xls*
 portfolio-assessment/**/portfolio_cell_defects.csv
 portfolio-assessment/**/portfolio_external_links_audit.csv
 
+# Local client presentation & executive demo assets
+gemini-enterprise-demo/
+presentation/
+portfolio-assessment/Portfolio scoring reports - agy session/
+
 # macOS metadata
 .DS_Store
 **/.DS_Store
