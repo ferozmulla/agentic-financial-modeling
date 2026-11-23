@@ -1,0 +1,30 @@
+"""Path-safe pure-BigQuery OpenXML (.xlsx) synthesizer helpers template."""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+_SAFE_FILENAME_RE = re.compile(r"^[A-Za-z0-9._\-]+$")
+
+
+def sanitize_export_filename(raw_name: str, suffix: str = ".xlsx") -> str:
+    """Sanitize export filename to prevent path traversal and header injection."""
+    base = Path(raw_name).name.strip()
+    stem = re.sub(r"[^A-Za-z0-9._\-]+", "_", base)
+    if not stem.lower().endswith(suffix):
+        stem = f"{stem}{suffix}"
+    if not _SAFE_FILENAME_RE.match(stem) or ".." in stem:
+        raise ValueError(f"Invalid export filename: {raw_name!r}")
+    return stem
+
+
+def resolve_contained_export_path(export_dir: Path, filename: str) -> Path:
+    """Verify resolved target path stays strictly inside `export_dir`."""
+    safe_name = sanitize_export_filename(filename)
+    root = export_dir.resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    candidate = (root / safe_name).resolve()
+    if candidate.parent != root:
+        raise ValueError("Export path escaped export directory")
+    return candidate

@@ -38,6 +38,9 @@ commodity-modeling-sheets-platform/
 
 ## Adding a New Workbook Modernization
 
+Administrators can onboard a new `.xlsx` or `.xlsm` workbook automatically via [`model-onboarding/`](./model-onboarding/README.md) (`onboard assess`, `onboard submit`, `onboard deploy`, or `/onboard-energy-model-gcp` in Gemini Agent), which runs the deterministic MES/MDR Hygiene & Exception Gate (`GO` / `CONDITIONAL_GO` / `NO_GO`), generates and parity-verifies `<model_slug>-bq-twin/` inside an isolated Managed Agents sandbox, and opens a reviewable Git Pull Request before BigQuery / BQML / Cloud Run / Agent Registry deployment.
+
+For manual additions:
 1. Create a new sibling directory at the root (for example, `<region-or-commodity-model>/`) following the self-contained layout in [`brazil-power-v13/`](./brazil-power-v13/README.md).
 2. Reuse the shared `.venv/` at the platform root (or create a workbook-specific `.venv/` if dependencies diverge).
 3. Register the new sub-folder in the **Modernized Workbooks Catalog** table above and add corresponding `test-<name>` / `lint-<name>` targets in the root [`Makefile`](./Makefile).
