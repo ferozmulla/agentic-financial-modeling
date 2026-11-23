@@ -1,0 +1,241 @@
+{
+  "model_slug": "latinlr202409",
+  "workbook_name": "Latinlr202409_remediated.xlsx",
+  "file_size_mb": 11.2,
+  "archetype": "Circular Equilibrium Time-Series Model",
+  "vintage_tag": "202409",
+  "sheet_count": 22,
+  "total_populated_cells": 377758,
+  "total_formula_cells": 348926,
+  "mes_score": 94.64,
+  "mhs_score": 73.42,
+  "mdr_score": 26.58,
+  "mri_score": 85.09,
+  "readiness_tier": "Tier 1 \u2014 Fast-Track Automated Port",
+  "recommended_action": "Direct Google Sheets + Cloud Run solver + BigQuery ML deployment.",
+  "decision": "CONDITIONAL_GO",
+  "decision_rationale": [
+    "Passed hard extractability blockers (MES=94.6%, MRI=85.1%), with 4 warning(s) requiring reviewer verification in the Git PR.",
+    "[WARNING:SNAPSHOT_EXTERNAL_LINKS] External Workbook Links Snapshotted from Cached Values (99.9% cached) (affected=26936).",
+    "[WARNING:EVALUATED_CELL_ERROR] Evaluated Formula Cell Errors (#REF!, #VALUE!, #DIV/0!, #NAME?) (affected=283).",
+    "[WARNING:BROKEN_FORMULA_REFERENCE] Broken Formula Reference (affected=115).",
+    "[WARNING:ELEVATED_DEFECT_OR_MODERATE_MRI] Moderate Readiness / Elevated Defect Rate (MRI=85.1%, MDR=26.6%) (affected=1)."
+  ],
+  "exceptions": [
+    {
+      "code": "SNAPSHOT_EXTERNAL_LINKS",
+      "severity": "WARNING",
+      "sub_metric": "E4/H4",
+      "title": "External Workbook Links Snapshotted from Cached Values (99.9% cached)",
+      "affected_count": 26936,
+      "sample_locations": [
+        "Dashboard_Annual!B52",
+        "Dashboard_Annual!C52",
+        "Dashboard_Annual!D52",
+        "Dashboard_Annual!E52",
+        "Dashboard_Annual!F52",
+        "Dashboard_Annual!G52",
+        "Dashboard_Annual!H52",
+        "Dashboard_Annual!I52",
+        "Dashboard_Annual!J52",
+        "Dashboard_Annual!B53"
+      ],
+      "remediation": "External [N]Sheet!Cell links will be materialized into dt_external_links using cached baseline values unless peer workbooks are supplied."
+    },
+    {
+      "code": "EVALUATED_CELL_ERROR",
+      "severity": "WARNING",
+      "sub_metric": "H1",
+      "title": "Evaluated Formula Cell Errors (#REF!, #VALUE!, #DIV/0!, #NAME?)",
+      "affected_count": 283,
+      "sample_locations": [
+        "Dashboard_Annual!B111",
+        "Dashboard_Annual!C111",
+        "LinksOut_Month!IM73",
+        "LinksOut_Month!IN73",
+        "LinksOut_Month!IO73",
+        "LinksOut_Month!IP73",
+        "LinksOut_Month!IQ73",
+        "LinksOut_Month!IR73",
+        "LinksOut_Month!IS73",
+        "LinksOut_Month!IT73"
+      ],
+      "remediation": "Inspect flagged formula cells; fix broken references or guard intentional zero-divisors with IFERROR()."
+    },
+    {
+      "code": "BROKEN_FORMULA_REFERENCE",
+      "severity": "WARNING",
+      "sub_metric": "H3",
+      "title": "Broken Formula Reference",
+      "affected_count": 115,
+      "sample_locations": [
+        "Escalante!DA885",
+        "Escalante!DB885",
+        "Escalante!DC885",
+        "Escalante!DD885",
+        "Escalante!DE885",
+        "Escalante!DF885",
+        "Escalante!DG885",
+        "Escalante!DH885",
+        "Escalante!DI885",
+        "Escalante!DJ885"
+      ],
+      "remediation": "Review flagged cell coordinates during PR inspection."
+    },
+    {
+      "code": "ELEVATED_DEFECT_OR_MODERATE_MRI",
+      "severity": "WARNING",
+      "sub_metric": "MRI/MDR",
+      "title": "Moderate Readiness / Elevated Defect Rate (MRI=85.1%, MDR=26.6%)",
+      "affected_count": 1,
+      "sample_locations": [],
+      "remediation": "Proceed with Conditional-Go; verify flagged defect coordinates against parity report in the Git PR."
+    },
+    {
+      "code": "UNLOCKED_DRAG_REFERENCE_DRIFT",
+      "severity": "INFO",
+      "sub_metric": "H2",
+      "title": "Unlocked Relative Reference Drift in Dragged Formulas",
+      "affected_count": 102,
+      "sample_locations": [
+        "LinksOut_Month!IM73",
+        "LinksOut_Month!IN73",
+        "LinksOut_Month!IO73",
+        "LinksOut_Month!IP73",
+        "LinksOut_Month!IQ73",
+        "LinksOut_Month!IR73",
+        "LinksOut_Month!IS73",
+        "LinksOut_Month!IT73",
+        "LinksOut_Month!IU73",
+        "LinksOut_Month!IV73"
+      ],
+      "remediation": "Add '$' row/column anchors to lookup table ranges in dragged formulas."
+    }
+  ],
+  "extractability_metrics": [
+    {
+      "code": "E1",
+      "title": "Formula & UDF Portability",
+      "applicable": true,
+      "effective_weight": 0.4375,
+      "score": 99.9,
+      "summary": "348,926 formulas (0 XLL UDF, 2,268 CSE/OFFSET/_xlfn, 0 opaque/failed-XLL)"
+    },
+    {
+      "code": "E2",
+      "title": "Macro & Procedural Transparency",
+      "applicable": false,
+      "effective_weight": 0.0,
+      "score": null,
+      "summary": "N/A (Macro-free)"
+    },
+    {
+      "code": "E3",
+      "title": "Graph & Convergence Determinism",
+      "applicable": true,
+      "effective_weight": 0.1875,
+      "score": 84.97,
+      "summary": "Iterative (iterateCount=100), 36 volatile cells"
+    },
+    {
+      "code": "E4",
+      "title": "External Feed & Connection Decoupling",
+      "applicable": true,
+      "effective_weight": 0.1875,
+      "score": 86.69,
+      "summary": "26,936 ext-link cells (99.9% cached) across 8 books, 0 XLL feed cells; connections.xml=False"
+    },
+    {
+      "code": "E5",
+      "title": "Time-Series & R1C1 Regularity",
+      "applicable": true,
+      "effective_weight": 0.1875,
+      "score": 100.0,
+      "summary": "97.0x R1C1 compression (342,971 cells -> 3,536 patterns)"
+    }
+  ],
+  "hygiene_metrics": [
+    {
+      "code": "H1",
+      "title": "Evaluated Cell Error Cleanliness",
+      "applicable": true,
+      "effective_weight": 0.25,
+      "score": 51.87,
+      "summary": "23,100 error cells ({'#N/A': 7346, '#REF!': 14872, '#VALUE!': 557, '#DIV/0!': 325}), 0 intentional NA() excluded"
+    },
+    {
+      "code": "H2",
+      "title": "Formula Continuity & Drag Integrity",
+      "applicable": true,
+      "effective_weight": 0.25,
+      "score": 65.54,
+      "summary": "10,278 island/drift cells + 1,076 fill glitches across 354,642 series cells"
+    },
+    {
+      "code": "H3",
+      "title": "Reference & Named-Range Validity",
+      "applicable": true,
+      "effective_weight": 0.2,
+      "score": 96.22,
+      "summary": "4,515 dead formula refs; 0/2618 (0.0%) #REF! defined names"
+    },
+    {
+      "code": "H4",
+      "title": "External Link & Vintage Hygiene",
+      "applicable": true,
+      "effective_weight": 0.2,
+      "score": 91.67,
+      "summary": "12 declared links (4 unused, 0 vintage-drift, 3 local/ghost)"
+    },
+    {
+      "code": "H5",
+      "title": "Calculation State & Sheet Hygiene",
+      "applicable": true,
+      "effective_weight": 0.1,
+      "score": 64.85,
+      "summary": "calcCompleted=1, dead_tabs=1, empty_style_bloat=65.3%"
+    }
+  ],
+  "candidate_assumption_sheets": [
+    "Dashboard_Month",
+    "Dashboard_Annual",
+    "Yields"
+  ],
+  "candidate_timeseries_sheets": [
+    "LinksOut_Month",
+    "LinksOut_Annual",
+    "UPLOAD - Annual",
+    "Escalante",
+    "Medanito",
+    "Lula",
+    "Marlim",
+    "Castilla Blend",
+    "Vasconia",
+    "Napo",
+    "Oriente",
+    "Liza",
+    "Unity Gold",
+    "Olmeca",
+    "Merey",
+    "Mesa_30",
+    "LinksIn_Annual",
+    "LinksIn_Monthly"
+  ],
+  "vba_modules": [],
+  "is_iterative_calc": true,
+  "iterate_count": 1,
+  "telemetry": {
+    "xll_udf_cells": 0,
+    "opaque_cells": 0,
+    "cse_or_adv_cells": 2268,
+    "volatile_cells": 36,
+    "unintentional_error_cells": 23100,
+    "intentional_na_cells": 0,
+    "drag_and_island_cells": 10278,
+    "fill_glitch_cells": 1076,
+    "dead_formula_refs": 4515,
+    "broken_defined_names": 0,
+    "external_links_declared": 12
+  },
+  "evaluated_at_utc": "2026-11-23T21:24:57.097612+00:00"
+}
