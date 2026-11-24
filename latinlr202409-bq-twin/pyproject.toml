@@ -1,25 +1,32 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
+requires = ["setuptools>=61.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "latinlr202409-bq-twin"
 version = "1.0.0"
-description = "Isolated BigQuery Digital Twin, Circular Equilibrium Solver, ARIMA_PLUS BQML, and Remote MCP Server for Latinlr202409 (Latin America Refining)"
+description = "GCP BigQuery Digital Twin, 4-Ws Governance, ARIMA_PLUS BQML and AST Solver for Latinlr202409 Model"
 readme = "README.md"
 requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
 dependencies = [
-  "fastapi>=0.110.0",
-  "uvicorn>=0.29.0",
-  "pydantic>=2.6.0",
-  "pydantic-settings>=2.2.0",
-  "google-cloud-bigquery>=3.20.0",
-  "google-cloud-storage>=2.16.0",
-  "openpyxl>=3.1.2",
-  "numpy>=1.26.0",
-  "scipy>=1.12.0",
-  "pyyaml>=6.0.1",
+    "fastapi>=0.100.0",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "uvicorn>=0.22.0",
+    "openpyxl>=3.1.0",
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
+    "google-cloud-bigquery>=3.10.0",
+    "pyyaml>=6.0",
+    "httpx>=0.24.0"
 ]
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0"
+]

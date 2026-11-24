@@ -6,18 +6,17 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN groupadd --system appgroup && useradd --system --gid appgroup --create-home appuser
+RUN groupadd -r twinuser && useradd -r -g twinuser -d /app twinuser
 
-COPY requirements.txt pyproject.toml README.md /app/
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+COPY pyproject.toml README.md /app/
 COPY src /app/src
-COPY scripts /app/scripts
-COPY skills /app/skills
+RUN pip install --no-cache-dir --no-deps . && mkdir -p /app/runtime_exports && chown -R twinuser:twinuser /app
 
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir --no-deps .
+USER twinuser
 
-USER appuser
 EXPOSE 8080
 
 CMD ["uvicorn", "latinlr202409_bq_twin.mcp_app:app", "--host", "0.0.0.0", "--port", "8080"]

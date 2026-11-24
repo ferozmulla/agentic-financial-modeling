@@ -1,4 +1,4 @@
-"""Parameterized BigQuery Digital Twin, 4-Ws Governance & BQML ARIMA_PLUS DDL template."""
+"""Parameterized BigQuery Digital Twin, 4-Ws Governance & BQML ARIMA_PLUS DDL."""
 
 from __future__ import annotations
 
