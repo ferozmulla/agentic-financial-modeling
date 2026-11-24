@@ -1,11 +1,9 @@
-"""Environment-driven settings for `latinlr202409-bq-twin` with strict identifier validation."""
+"""Pydantic-settings configuration for Latinlr202409 BigQuery Digital Twin."""
 
 from __future__ import annotations
 
-import functools
 import re
 from pathlib import Path
-
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -13,31 +11,24 @@ _SAFE_ID_RE = re.compile(r"^[A-Za-z0-9_\-]+$")
 
 
 class TwinSettings(BaseSettings):
-    """Configuration for the isolated Latin America Refining Digital Twin."""
+    """Application settings with environment variable overrides."""
 
-    model_config = SettingsConfigDict(env_prefix="LATINLR202409_TWIN_", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+    )
 
-    gcp_project_id: str = "comm-model-mod"
-    gcp_region: str = "us-central1"
-    bq_dataset_id: str = "latinlr202409_digital_twin"
+    project_id: str = "latinlr202409-gcp"
+    dataset_id: str = "latinlr202409_digital_twin"
     workbook_id: str = "latinlr202409"
-    base_version_id: str = "lr202409_baseline"
-    gcs_vault_bucket: str = "comm-model-mod-onboarding-staging"
-    gcs_export_prefix: str = "exports/latinlr202409_twin"
-    public_service_url: str = ""
-    export_local_dir: str = str(Path("/tmp/latinlr202409_runtime_exports"))
-    default_session_id: str = "latinlr202409-default-session"
-    default_actor: str = "gemini-agent@comm-model-mod"
+    base_version_id: str = "baseline"
+    export_dir: Path = Path("/tmp/runtime_exports")
 
-    @field_validator("gcp_project_id", "bq_dataset_id", "workbook_id", "base_version_id")
+    @field_validator("project_id", "dataset_id", "workbook_id", "base_version_id")
     @classmethod
-    def _validate_identifier(cls, value: str) -> str:
-        cleaned = value.strip()
-        if not _SAFE_ID_RE.match(cleaned):
-            raise ValueError(f"Unsafe identifier value: {value!r}")
-        return cleaned
+    def validate_bq_ids(cls, v: str) -> str:
+        if not _SAFE_ID_RE.match(v):
+            raise ValueError(f"Unsafe configuration value: {v!r}")
+        return v
 
 
-@functools.lru_cache(maxsize=1)
-def get_twin_settings() -> TwinSettings:
-    return TwinSettings()
+settings = TwinSettings()

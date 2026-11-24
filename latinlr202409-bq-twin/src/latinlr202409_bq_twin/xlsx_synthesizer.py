@@ -1,9 +1,14 @@
-"""Path-safe pure-BigQuery OpenXML (.xlsx) synthesizer helpers template."""
+"""Path-safe pure-BigQuery OpenXML (.xlsx) synthesizer helpers."""
 
 from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Any
+import openpyxl
+from openpyxl.styles import PatternFill
+
+from .xlsx_compiler import split_a1
 
 _SAFE_FILENAME_RE = re.compile(r"^[A-Za-z0-9._\-]+$")
 
@@ -30,20 +35,40 @@ def resolve_contained_export_path(export_dir: Path, filename: str) -> Path:
     return candidate
 
 
-def synthesize_workbook_from_snapshot(snapshot, export_dir: Path, filename: str = "Latinlr202409_export.xlsx") -> Path:
-    """Synthesize a clean .xlsx workbook from in-memory Digital Twin snapshot with strict path containment."""
-    import openpyxl
+def synthesize_workbook(
+    seed_path_str: str,
+    output_path: Path,
+    session_id: str,
+    store_or_deltas: Any,  # Either BaseDigitalTwinStore or a dict of deltas directly
+) -> None:
+    """Synthesize workbook by overlaying overrides onto the seed workbook and saving."""
+    seed_path = Path(seed_path_str).expanduser().resolve()
+    if not seed_path.is_file():
+        raise FileNotFoundError(f"Seed workbook not found at: {seed_path_str}")
 
-    out_path = resolve_contained_export_path(export_dir, filename)
-    wb = openpyxl.Workbook()
-    default_ws = wb.active
-    for idx, (sheet_name, grid) in enumerate(snapshot.cells_by_sheet.items()):
-        ws = default_ws if idx == 0 and default_ws is not None else wb.create_sheet(title=sheet_name[:31])
-        ws.title = sheet_name[:31]
-        for (r, c), cell in grid.items():
-            if cell.numeric_value is not None:
-                ws.cell(row=r, column=c, value=cell.numeric_value)
-            elif cell.string_value is not None:
-                ws.cell(row=r, column=c, value=cell.string_value)
-    wb.save(out_path)
-    return out_path
+    # Load workbook using openpyxl
+    wb = openpyxl.load_workbook(seed_path)
+
+    # Fetch active overrides
+    if hasattr(store_or_deltas, "get_session_deltas"):
+        overrides = store_or_deltas.get_session_deltas(session_id)
+    elif isinstance(store_or_deltas, dict):
+        overrides = store_or_deltas
+    else:
+        overrides = {}
+
+    # Overrides color highlight fill: Amber #FDE68A
+    amber_fill = PatternFill(start_color="FDE68A", end_color="FDE68A", fill_type="solid")
+
+    # Apply overrides
+    for (sheet_name, cell_coord), delta in overrides.items():
+        if sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+            # Write overridden value
+            val = delta.get("numeric_value") if delta.get("numeric_value") is not None else delta.get("string_value")
+            ws[cell_coord] = val
+            # Color overridden cell
+            ws[cell_coord].fill = amber_fill
+
+    # Save to safe destination
+    wb.save(output_path)

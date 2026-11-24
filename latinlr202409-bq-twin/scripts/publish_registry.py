@@ -1,37 +1,33 @@
 #!/usr/bin/env python3
-"""Publish `latinlr202409-bq-twin-mcp` and `latinlr202409-model-gcp` skill to Google Cloud Agent Registry."""
+"""Publish MCP server and Analyst Guided Skills to Agent Registry."""
 
 from __future__ import annotations
 
-import argparse
 import json
-import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT / "src") not in sys.path:
-    sys.path.insert(0, str(ROOT / "src"))
-
-from latinlr202409_bq_twin.mcp_tools import MCP_SERVER_NAME, TWIN_MCP_TOOLS
+from latinlr202409_bq_twin.config import settings
+from latinlr202409_bq_twin.mcp_tools import build_standard_7_tools
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Publish MCP server and skill metadata.")
-    parser.add_argument("--cloud-run-url", type=str, default="https://latinlr202409-bq-twin-mcp-2wcxwkmdga-uc.a.run.app")
-    args = parser.parse_args()
-    print(
-        json.dumps(
-            {
-                "service": MCP_SERVER_NAME,
-                "endpoint": f"{args.cloud_run_url.rstrip('/')}/mcp",
-                "tools": [t["name"] for t in TWIN_MCP_TOOLS],
-                "skill": "latinlr202409-model-gcp",
-            },
-            indent=2,
-        )
-    )
-    return 0
+def main() -> None:
+    print("Collecting standard 7-tool MCP schemas...")
+    dataset_fqn = f"{settings.project_id}.{settings.dataset_id}"
+    tools = build_standard_7_tools("latinlr202409", "Latinlr202409 Crude Model", dataset_fqn)
+    print(f"Loaded {len(tools)} remote MCP tool schemas:")
+    for t in tools:
+        print(f"  - {t['name']}: {t['description'][:80]}...")
+
+    print("\nLocating Analyst Skill markdown files...")
+    skills_dir = Path(__file__).parent.parent / "skills"
+    if skills_dir.is_dir():
+        for skill_path in skills_dir.glob("**/SKILL.md"):
+            print(f"  - Found: {skill_path.relative_to(skills_dir.parent)}")
+    else:
+        print("  - No skills directory found.")
+
+    print("\nAgent Registry publishing completed successfully (Dry-Run).")
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

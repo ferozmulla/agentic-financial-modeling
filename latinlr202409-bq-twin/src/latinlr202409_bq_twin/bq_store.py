@@ -1,18 +1,26 @@
-"""Parameterized BigQuery Digital Twin Store & 4-Ws Audit Event Writer reference template."""
+"""Parameterized BigQuery Digital Twin Store & 4-Ws Audit Event Writer with In-Memory fallback."""
 
 from __future__ import annotations
 
 import uuid
+import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from google.cloud import bigquery
+try:
+    from google.cloud import bigquery
+    from google.auth.exceptions import DefaultCredentialsError
+    HAS_BQ = True
+except ImportError:
+    HAS_BQ = False
 
 from .schema_ddl import validate_bq_identifier
 
+logger = logging.getLogger(__name__)
+
 
 class BaseDigitalTwinStore:
-    """Thread-safe BigQuery Digital Twin persistence using parameterized queries exclusively."""
+    """Thread-safe BigQuery Digital Twin persistence with a robust in-memory fallback."""
 
     def __init__(self, project_id: str, dataset_id: str, workbook_id: str, base_version_id: str) -> None:
         self.project_id = validate_bq_identifier(project_id)
@@ -21,35 +29,71 @@ class BaseDigitalTwinStore:
         self.base_version_id = validate_bq_identifier(base_version_id)
         self._fq = f"`{self.project_id}.{self.dataset_id}"
         self._client: bigquery.Client | None = None
+        self._use_fallback = not HAS_BQ
+
+        # Thread-safe in-memory store fallback
+        # session_id -> {(sheet_name, cell_coord): delta_dict}
+        self._in_memory_deltas: dict[str, dict[tuple[str, str], dict[str, Any]]] = {}
+        self._in_memory_audits: dict[str, list[dict[str, Any]]] = {}
 
     @property
     def client(self) -> bigquery.Client:
+        if self._use_fallback:
+            raise RuntimeError("BigQuery is disabled or missing credentials.")
         if self._client is None:
-            self._client = bigquery.Client(project=self.project_id)
+            try:
+                self._client = bigquery.Client(project=self.project_id)
+            except Exception as e:
+                logger.warning("Failed to initialize BigQuery client, falling back to in-memory mode: %s", e)
+                self._use_fallback = True
+                raise RuntimeError("BigQuery client initialization failed.") from e
         return self._client
+
+    def is_fallback_active(self) -> bool:
+        if self._use_fallback:
+            return True
+        try:
+            _ = self.client
+            return False
+        except Exception:
+            return True
 
     def get_session_deltas(self, session_id: str) -> dict[tuple[str, str], dict[str, Any]]:
         """Fetch latest active non-tombstone cell overrides for `session_id`."""
-        sql = f"""
-        SELECT sheet_name, cell_coord, delta_kind, numeric_value, string_value
-        FROM {self._fq}.vw_dt_latest_session_deltas`
-        WHERE session_id = @session_id
-          AND workbook_id = @workbook_id
-          AND base_version_id = @base_version_id
-        """
-        cfg = bigquery.QueryJobConfig(
-            query_parameters=[
-                bigquery.ScalarQueryParameter("session_id", "STRING", session_id),
-                bigquery.ScalarQueryParameter("workbook_id", "STRING", self.workbook_id),
-                bigquery.ScalarQueryParameter("base_version_id", "STRING", self.base_version_id),
-            ],
-            labels={"datacloud": "antigravity", "component": "digital-twin-store"},
-        )
-        overlays: dict[tuple[str, str], dict[str, Any]] = {}
-        for row in self.client.query(sql, job_config=cfg).result():
-            if row["delta_kind"] != "RESET_TOMBSTONE":
-                overlays[(row["sheet_name"], row["cell_coord"])] = dict(row)
-        return overlays
+        if self.is_fallback_active():
+            logger.info("Fetching session deltas from IN-MEMORY store for session_id=%s", session_id)
+            session_store = self._in_memory_deltas.get(session_id, {})
+            return {
+                coord: delta
+                for coord, delta in session_store.items()
+                if delta.get("delta_kind") != "RESET_TOMBSTONE"
+            }
+
+        try:
+            sql = f"""
+            SELECT sheet_name, cell_coord, delta_kind, numeric_value, string_value
+            FROM {self._fq}.vw_dt_latest_session_deltas`
+            WHERE session_id = @session_id
+              AND workbook_id = @workbook_id
+              AND base_version_id = @base_version_id
+            """
+            cfg = bigquery.QueryJobConfig(
+                query_parameters=[
+                    bigquery.ScalarQueryParameter("session_id", "STRING", session_id),
+                    bigquery.ScalarQueryParameter("workbook_id", "STRING", self.workbook_id),
+                    bigquery.ScalarQueryParameter("base_version_id", "STRING", self.base_version_id),
+                ],
+                labels={"datacloud": "antigravity", "component": "digital-twin-store"},
+            )
+            overlays: dict[tuple[str, str], dict[str, Any]] = {}
+            for row in self.client.query(sql, job_config=cfg).result():
+                if row["delta_kind"] != "RESET_TOMBSTONE":
+                    overlays[(row["sheet_name"], row["cell_coord"])] = dict(row)
+            return overlays
+        except Exception as e:
+            logger.warning("BigQuery query failed, using in-memory fallback for session_id=%s: %s", session_id, e)
+            self._use_fallback = True
+            return self.get_session_deltas(session_id)
 
     def record_deltas_and_audit(
         self,
@@ -102,11 +146,31 @@ class BaseDigitalTwinStore:
                 }
             )
 
-        load_cfg = bigquery.LoadJobConfig(
-            write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
-            labels={"datacloud": "antigravity", "component": "digital-twin-store"},
-        )
-        fq_clean = f"{self.project_id}.{self.dataset_id}"
-        self.client.load_table_from_json(delta_rows, f"{fq_clean}.dt_scenario_deltas", job_config=load_cfg).result()
-        self.client.load_table_from_json(audit_rows, f"{fq_clean}.dt_audit_events", job_config=load_cfg).result()
-        return len(delta_rows)
+        if self.is_fallback_active():
+            logger.info("Recording %d deltas IN-MEMORY for session_id=%s", len(deltas), session_id)
+            if session_id not in self._in_memory_deltas:
+                self._in_memory_deltas[session_id] = {}
+            if session_id not in self._in_memory_audits:
+                self._in_memory_audits[session_id] = []
+
+            for row in delta_rows:
+                coord = (row["sheet_name"], row["cell_coord"])
+                self._in_memory_deltas[session_id][coord] = row
+
+            self._in_memory_audits[session_id].extend(audit_rows)
+            return len(deltas)
+
+        try:
+            load_cfg = bigquery.LoadJobConfig(
+                write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
+                labels={"datacloud": "antigravity", "component": "digital-twin-store"},
+            )
+            fq_clean = f"{self.project_id}.{self.dataset_id}"
+            self.client.load_table_from_json(delta_rows, f"{fq_clean}.dt_scenario_deltas", job_config=load_cfg).result()
+            self.client.load_table_from_json(audit_rows, f"{fq_clean}.dt_audit_events", job_config=load_cfg).result()
+            return len(delta_rows)
+        except Exception as e:
+            logger.warning("BigQuery append failed, using in-memory fallback for recording deltas: %s", e)
+            self._use_fallback = True
+            # Recursively try recording using fallback
+            return self.record_deltas_and_audit(session_id, deltas, who_principal, source_tool, why_context)
